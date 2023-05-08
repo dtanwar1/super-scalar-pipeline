@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "GCC",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "configurationProvider": "ms-vscode.cpptools",
+            "compilerPath": "C:/msys64/mingw64/bin/g++.exe",
+            "intelliSenseMode": "windows-gcc-x64"
+        }
+    ],
+    "version": 4
+}

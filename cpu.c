@@ -82,6 +82,7 @@ create_registers(int size){
     for (int i=0; i<size; i++){
         regs[i].value = 0;
         regs[i].is_writing = false;
+        regs[i].tag = 0;
     }
     return regs;
 }
