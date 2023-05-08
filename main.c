@@ -21,7 +21,7 @@ bool calculateStructuralHazard = false;
 bool calculateDataHazard = true;
 int headIndex = 0;
 int tailIndex = 0;
-bool enableLogs = true;
+bool enableLogs = false;
 myLogger *logger;
 bool logHide = false;
 
@@ -317,6 +317,7 @@ void createLogForStage(int stage, Stage* instr){
 
 
 }
+
 void incrementHeadIndex(){
     headIndex = headIndex >=7? 0: headIndex+1;   
 }
@@ -377,6 +378,7 @@ void resetOldInstruction(int oldStage,Stage *stage){
         oldInstruction->index = -1 ;
         oldInstruction->counter = -1;
         oldInstruction->destinationRegister = -1;
+        oldInstruction->robDest=-1;
         oldInstruction->immediateValue1 = INT_MIN;
         oldInstruction->immediateValue2 = INT_MIN;
         oldInstruction->opcode ="";
@@ -387,6 +389,9 @@ void resetOldInstruction(int oldStage,Stage *stage){
         oldInstruction->pcIndex = -1;
         oldInstruction->sourceRegister1 = -1;
         oldInstruction->sourceRegister2=-1;
+        oldInstruction->robSr1=-1;
+        oldInstruction->robSr2=-1;
+
         oldInstruction->stallType = -1;
         oldInstruction->tag = -1;
         oldInstruction->tempResult = INT_MIN;
@@ -1351,6 +1356,8 @@ void multiplier1(Stage  *instr){
 }
 void multiplier2(Stage  *instr){
     Stage *mulInstruction2 = &instr[MUL2]; 
+    Stage *wb1Instruction = &instr[WB1]; 
+    Stage *wb2Instruction = &instr[WB2]; 
     
     if(mulInstruction2->index > -1){
 
@@ -1366,7 +1373,11 @@ void multiplier2(Stage  *instr){
                                 
 
             }      
-            pushDataToNewStage(MUL2,WB2,instr);                                            
+            
+            
+            
+                pushDataToNewStage(MUL2,WB2,instr);
+                                                        
     }
 }
 
@@ -1423,6 +1434,8 @@ void divider2(Stage  *instr){
 void divider3(Stage  *instr){
 
     Stage *divInstruction3 = &instr[DIV3]; 
+    Stage *wb1Instruction = &instr[WB1]; 
+    Stage *wb2Instruction = &instr[WB2]; 
 
     if(divInstruction3->index > -1){
 
@@ -1440,7 +1453,10 @@ void divider3(Stage  *instr){
 
             }    
 
-            pushDataToNewStage(DIV3,WB3,instr);              
+            
+                pushDataToNewStage(DIV3,WB3,instr);
+            
+
                             
         
     }
@@ -1559,16 +1575,11 @@ void mem4(Stage  *instr){
         
     }
 }
+void wb(Stage* writeback, ROB *rob){
 
-void writeBack(Stage *instr, ROB* rob){
-    Stage *wbInstruction = &instr[WB1];
-
-    if(wbInstruction->index >-1){
-
-        createLogForStage(WB1,wbInstruction);
-        if(strcmp(wbInstruction->destinationRegisterName,rob[headIndex].bufferName) == 0){
+        if(strcmp(writeback->destinationRegisterName,rob[headIndex].bufferName) == 0){
         
-            switch (createOpcodeIndex(wbInstruction->opcode))
+            switch (createOpcodeIndex(writeback->opcode))
             {
                                 case add:    
                                 case mul:
@@ -1577,7 +1588,7 @@ void writeBack(Stage *instr, ROB* rob){
                                 case set:
                                 case ld:
                                         
-                                        rob[headIndex].result = wbInstruction->tempResult;
+                                        rob[headIndex].result = writeback->tempResult;
                                         rob[headIndex].completed = true;
                                         int tempHead = headIndex+1;
                                         if(tempHead == tailIndex){
@@ -1602,8 +1613,53 @@ void writeBack(Stage *instr, ROB* rob){
         else{
             rob[headIndex].completed = true;
         }
-        pushDataToNewStage(WB1,RE1,instr);  
+}
+void writeBack(Stage *instr, ROB* rob){
+    Stage *wb1Instruction = &instr[WB1];
+    Stage *wb2Instruction = &instr[WB2];
+    Stage *wb3Instruction = &instr[WB3];
+    Stage *wb4Instruction = &instr[WB4];
+    Stage *re1Instr = &instr[RE1];
+    Stage *re2Instr = &instr[RE1];
+
+
+    if(wb1Instruction->index >-1){
+        createLogForStage(WB1,wb1Instruction);
+        wb(wb1Instruction,rob);
+        if(re1Instr->index<0){
+            pushDataToNewStage(WB1,RE1,instr);
+        }else if(re2Instr->index <0){
+            pushDataToNewStage(WB1,RE2,instr);
+        }
     }
+    else if(wb2Instruction->index >-1){
+        createLogForStage(WB2,wb2Instruction);
+        wb(wb2Instruction,rob);
+        if(re1Instr->index<0){
+            pushDataToNewStage(WB2,RE1,instr);
+        }else if(re2Instr->index <0){
+            pushDataToNewStage(WB2,RE2,instr);
+        }
+    }
+    else if(wb3Instruction->index >-1){
+        createLogForStage(WB3,wb3Instruction);
+        wb(wb3Instruction,rob);
+        if(re1Instr->index<0){
+            pushDataToNewStage(WB3,RE1,instr);
+        }else if(re2Instr->index <0){
+            pushDataToNewStage(WB3,RE2,instr);
+        } 
+    }
+    else if(wb4Instruction->index >-1){
+        createLogForStage(WB4,wb4Instruction);
+        wb(wb4Instruction,rob);
+        if(re1Instr->index<0){
+            pushDataToNewStage(WB4,RE1,instr);
+        }else if(re2Instr->index <0){
+            pushDataToNewStage(WB4,RE2,instr);
+        } 
+    }
+    
     
 }
 
@@ -1920,7 +1976,7 @@ void processPipeline(char *instrFromFile[300],CPU *cpu){
         }
 
         //print_display(cpu);
-        //printLogs(cpu->cycle,rob,cpu);
+        printLogs(cpu->cycle,rob,cpu);
         //printBTBPrediction(btb);
 
         if(toStop){
