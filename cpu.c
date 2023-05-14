@@ -64,7 +64,7 @@ print_registers(CPU *cpu){
 int
 CPU_run(CPU* cpu)
 {
-    printf("Start...\n");
+    
     print_registers(cpu);
     printf("Number of IR stage stalls due to the full reservation station:%d\n",cpu->fullReservationStation);
     printf("Number of IR stage stalls due to the full reorder buffer:%d\n",cpu->fullReOrderBuffer);

@@ -2319,6 +2319,7 @@ void processPipeline(char *instrFromFile[300],CPU *cpu){
     //reserveStation_init();
     bool retire1toStop =false;
     bool retire2toStop =false;
+    printf("Start...\n");
     while(true){
 
         
