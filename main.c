@@ -81,6 +81,17 @@ int createOpcodeIndex(char* opcode){
     return resopcode;
 }
 
+char *get_filename(char *path) {
+    char *filename = path + strlen(path);
+    while (filename > path) {
+        if (*filename == '/' || *filename == '\\') {
+            return filename + 1;
+        }
+        filename--;
+    }
+    return filename;
+}
+
 bool checkIfBranchInstruction(int resopcode){
     bool isBranch = false;
 
@@ -2417,8 +2428,9 @@ void run_cpu_fun(char* filename){
     readInstructionFromFile(filename,instrFromFile);
     readMemoryMapFromFile("memory_map.txt");
     processPipeline(instrFromFile,cpu);
+    char *fname = get_filename(filename);
     char opMemFileName[300]  = "mmap_";
-    sprintf(opMemFileName, "%s%s", opMemFileName, filename);
+    sprintf(opMemFileName, "%s%s", opMemFileName, fname);
     writeToFile(opMemFileName);
     CPU_run(cpu);
     CPU_stop(cpu);
