@@ -2423,14 +2423,14 @@ void run_cpu_fun(char* filename){
 
 int main(int argc, const char * argv[]) {
     
-//    if (argc<=1) {
-//         fprintf(stderr, "Error : missing required args\n");
-//         return -1;
-//     }
+   if (argc<=1) {
+        fprintf(stderr, "Error : missing required args\n");
+        return -1;
+    }
 
-    char* filename = "program4.txt";
+    
 
-    // char* filename = (char*)argv[1];
+    char* filename = (char*)argv[1];
     
     
 
