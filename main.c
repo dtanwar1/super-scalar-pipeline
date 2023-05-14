@@ -2117,7 +2117,7 @@ ROB_init()
     
     for (int i=0; i<ROB_COUNT; i++){
         ROB* robIterator = &robIn[i];
-        char robName[5]  = "ROB";    
+        char robName[25]  = "ROB";    
         char index[2];
         sprintf(index, "%d", i);
         sprintf(robName, "%s%s", robName, index);
@@ -2318,6 +2318,7 @@ void processPipeline(char *instrFromFile[300],CPU *cpu){
     bool retire2toStop =false;
     while(true){
 
+        
         
         // printf("================================\n");
         // printf("Clock Cycle #: %d\n",cpu->cycle);

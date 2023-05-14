@@ -108,7 +108,7 @@ typedef struct Stage
 
 typedef struct ROB
 {
-   char bufferName[5];
+   char bufferName[25];
    int dest;
    int result;
    bool e;
