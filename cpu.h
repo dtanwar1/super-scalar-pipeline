@@ -186,6 +186,6 @@ void
 CPU_stop(CPU* cpu);
 
 void 
-print_display(CPU *cpu);
+print_display(CPU *cpu, int cycle);
 
 #endif

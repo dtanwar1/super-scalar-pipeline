@@ -2390,7 +2390,7 @@ void processPipeline(char *instrFromFile[300],CPU *cpu){
             cpu->totalInstructions++;
         }
 
-        //print_display(cpu);
+        print_display(cpu,cpu->cycle);
         //printLogs(cpu->cycle,rob,cpu);
         //printBTBPrediction(btb);
 

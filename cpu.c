@@ -94,15 +94,18 @@ create_registers(int size){
     }
     return regs;
 }
-void print_display(CPU *cpu){
+void print_display(CPU *cpu, int cycle){
     
+
+    printf("================================\n");
+    printf("Clock Cycle #: %d\n", cycle);
+    printf("--------------------------------\n");
 
    for (int reg=0; reg<REG_COUNT; reg++) {
        
         printf("REG[%2d]   |   Value=%d  \n",reg,cpu->regs[reg].value);
         printf("--------------------------------\n");
     }
-    printf("================================\n");
     printf("\n");
 
 }
