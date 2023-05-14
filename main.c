@@ -29,51 +29,54 @@ int retireBufferIndex = 0;
 
 int createOpcodeIndex(char* opcode){
     int resopcode = -1;
-    char first_three[4];
-    strncpy(first_three, opcode, 3);
-    first_three[3] = '\0';
-    if (strcmp(opcode, "add") == 0)
-    {
-        resopcode = add;
-    }
-    if(strcmp(opcode, "sub") == 0){
-        resopcode = sub;
-    }
-    if(strcmp(opcode, "div") == 0){
-        resopcode =  div;
-    }
-     if(strcmp(opcode, "mul") == 0){
-        resopcode =  mul;
-    }
-    if(strcmp(opcode, "ret") == 0){
-        resopcode =  ret;
-    }
-    if(strcmp(opcode, "set") == 0){
-        resopcode =  set;
-    }
-    if(strcmp(opcode, "ld") == 0){
-        resopcode =  ld;
-    }
-    if(strcmp(opcode, "st") == 0){
-        resopcode =  st;
-    }
-    if(strcmp(opcode, "bez") == 0){
-        resopcode =  bez;
-    }
-    if(strcmp(opcode, "bgez") == 0){
-        resopcode =  bgez;
-    }
-    if(strcmp(opcode, "blez") == 0){
-        resopcode =  blez;
-    }
-    if(strcmp(opcode, "bgtz") == 0){
-        resopcode =  bgtz;
-    }
-    if(strcmp(opcode, "bltz") == 0){
-        resopcode =  bltz;
-    }
-    if(strcmp(first_three, "ret") == 0){
-        resopcode =  ret;
+
+    if(strlen(opcode) > 0){
+        char first_three[4];
+        strncpy(first_three, opcode, 3);
+        first_three[3] = '\0';
+        if (strcmp(opcode, "add") == 0)
+        {
+            resopcode = add;
+        }
+        if(strcmp(opcode, "sub") == 0){
+            resopcode = sub;
+        }
+        if(strcmp(opcode, "div") == 0){
+            resopcode =  div;
+        }
+        if(strcmp(opcode, "mul") == 0){
+            resopcode =  mul;
+        }
+        if(strcmp(opcode, "ret") == 0){
+            resopcode =  ret;
+        }
+        if(strcmp(opcode, "set") == 0){
+            resopcode =  set;
+        }
+        if(strcmp(opcode, "ld") == 0){
+            resopcode =  ld;
+        }
+        if(strcmp(opcode, "st") == 0){
+            resopcode =  st;
+        }
+        if(strcmp(opcode, "bez") == 0){
+            resopcode =  bez;
+        }
+        if(strcmp(opcode, "bgez") == 0){
+            resopcode =  bgez;
+        }
+        if(strcmp(opcode, "blez") == 0){
+            resopcode =  blez;
+        }
+        if(strcmp(opcode, "bgtz") == 0){
+            resopcode =  bgtz;
+        }
+        if(strcmp(opcode, "bltz") == 0){
+            resopcode =  bltz;
+        }
+        if(strcmp(first_three, "ret") == 0){
+            resopcode =  ret;
+        }
     }
     return resopcode;
 }
@@ -545,7 +548,7 @@ inorder_stage_init()
     if (!stage) {
         return NULL;
     }
-    for (int i=IF; i<22; i++){
+    for (int i=IF; i<STAGE_COUNT; i++){
         stage[i].type = i;
         stage[i].index = -1;
         
