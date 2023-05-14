@@ -2000,7 +2000,7 @@ void writeBack(Stage *instr, ROB* rob){
 bool retire1(Stage *instr,ROB* rob,CPU *cpu){
     Stage *retire1Instruction = &instr[RE1];
 
-    if(rob[headIndex].completed){
+    if(rob[headIndex].completed && rob[headIndex].reInstr->index >-1){
         retire1Instruction->type = RE1;
         copyData(retire1Instruction,rob[headIndex].reInstr);
     }
@@ -2057,7 +2057,7 @@ bool retire2(Stage *instr,ROB* rob,CPU *cpu){
     Stage *retire2Instruction = &instr[RE2];
     bool retire2Stop = false;
 
-    if(rob[headIndex].completed){
+    if(rob[headIndex].completed && rob[headIndex].reInstr->index >-1){
         retire2Instruction->type = RE2;
         copyData(retire2Instruction,rob[headIndex].reInstr);
     }
