@@ -20,10 +20,13 @@ CPU_init()
 
     /* Create register files */
     cpu->regs= create_registers(REG_COUNT);
-     cpu->totalInstructions =0;
+    cpu->totalInstructions =0;
     cpu->structuralHazard=0;
     cpu->cycle=0;
     cpu->dataHazard=0;
+    cpu->fullReOrderBuffer=0;
+    cpu->fetchStall=0;
+    cpu->fullReservationStation=0;
     return cpu;
 }
 
@@ -61,13 +64,18 @@ print_registers(CPU *cpu){
 int
 CPU_run(CPU* cpu)
 {
-    
+    printf("Start...\n");
     print_registers(cpu);
-    
-    printf("Stalled cycles due to data hazard:%d \n",cpu->dataHazard);
+    printf("Number of IR stage stalls due to the full reservation station:%d\n",cpu->fullReservationStation);
+    printf("Number of IR stage stalls due to the full reorder buffer:%d\n",cpu->fullReOrderBuffer);
+    printf("Number of IR stage stalls due to the data hazards:%d\n",cpu->dataHazard);
+    printf("Number of fetch stalls:%d\n",cpu->fetchStall);
+    printf("\n");
+    //printf("Stalled cycles due to data hazard:%d \n",cpu->dataHazard);
     printf("Total execution cycles:%d \n",cpu->cycle);
-    printf("Total instruction simulated:%d\n",cpu->totalInstructions );
+    //printf("Total instruction simulated:%d\n",cpu->totalInstructions );
     printf("IPC:%f \n",cpu->ipc);
+    printf("...End\n");
 
    
     return 0;

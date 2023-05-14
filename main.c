@@ -188,6 +188,9 @@ void createLogForStage(int stage, Stage* instr){
                 else if(strlen(instr->destinationRegisterName)>0){
                     sprintf(destinationRegister, "%s", instr->destinationRegisterName);
                 }
+                else if(ignore && instr->immediateValue2 >INT_MIN ){
+                    sprintf(destinationRegister, "%d", instr->immediateValue2);
+                }
                 else{
                     strcpy(destinationRegister, "R");
                     sprintf(destinationRegister, "%s%d", destinationRegister,instr->destinationRegister);
@@ -712,14 +715,21 @@ void pushDataToNewStage(int presentStage,int newStage,Stage *stage){
     }
 }
 
-int getStalledInstructionIndex(Stage *pipelineInstructions){
+int getStalledInstructionIndex(Stage *pipelineInstructions, int hazardType){
     int stalledInstrIndex = -1;
     for(int i=IF; i<RE1;i++){
         Stage *filterInstructions = &pipelineInstructions[i]; 
 
-        if(filterInstructions->stallType >NO_HAZARD){
-            stalledInstrIndex = filterInstructions->index;
-            break;
+        if(hazardType == NO_HAZARD){
+            if(filterInstructions->stallType >hazardType){
+                stalledInstrIndex = filterInstructions->index;
+                break;
+            }
+        }else if(hazardType > NO_HAZARD){
+            if(filterInstructions->stallType == hazardType){
+                stalledInstrIndex = filterInstructions->index;
+                break;
+            }
         }
     }
     return stalledInstrIndex;
@@ -799,83 +809,88 @@ void renameInstruction(Stage *rrInstruction,ROB *rob,CPU *cpu){
         dontcheck = true;
     }
 
-    for(int i=0;i<ROB_COUNT;i++){
+    if(!dontcheck){
+        for(int i=0;i<ROB_COUNT;i++){
 
-        if(rrInstruction->destinationRegister>-1 && rrInstruction->robDest >-1){
-            break;
-        }
-        else if(rrInstruction->robDest <0 && rrInstruction->destinationRegister>-1 && strlen(rrInstruction->destinationRegisterName) == 0
-         & !dontcheck){
+            if(rrInstruction->destinationRegister>-1 && rrInstruction->robDest >-1){
+                break;
+            }
+            else if(rrInstruction->robDest <0 && rrInstruction->destinationRegister>-1 && strlen(rrInstruction->destinationRegisterName) == 0
+            ){
 
-            if(rob[tailIndex].index <0){
-                rrInstruction->stallType = NO_HAZARD;
-                strcpy(rrInstruction->destinationRegisterName,rob[tailIndex].bufferName);
-                rob[tailIndex].completed = false;
-                rob[tailIndex].dest = rrInstruction->destinationRegister;
-                rob[tailIndex].index = rrInstruction->index;
+                if(rob[tailIndex].index <0){
+                    
+                    strcpy(rrInstruction->destinationRegisterName,rob[tailIndex].bufferName);
+                    rob[tailIndex].completed = false;
+                    rob[tailIndex].dest = rrInstruction->destinationRegister;
+                    rob[tailIndex].index = rrInstruction->index;
+                    
+                    cpu->regs[rrInstruction->destinationRegister].is_writing = false;
+                    cpu->regs[rrInstruction->destinationRegister].tag = tailIndex;
+                    incrementTailIndex();
+
+                }else{
+                    
+                }
+
                 
-                cpu->regs[rrInstruction->destinationRegister].is_writing = false;
-                cpu->regs[rrInstruction->destinationRegister].tag = tailIndex;
-                incrementTailIndex();
+                break;
+                
+            }
+
+            
+        }
+    }
+
+    
+
+        if(rrInstruction->sourceRegister1>-1){
+
+            if(rrInstruction->robSr1 >-1){
+                strcpy(rrInstruction->sourceRegister1Name,rob[rrInstruction->robSr1].bufferName);
+
+                if(rob[rrInstruction->robSr1].completed){
+                    rrInstruction->immediateValue1 = rob[rrInstruction->robSr1].result;
+                }
 
             }else{
-                rrInstruction->stallType = FULL_REORDER_BUFFER;
+                rrInstruction->immediateValue1 = cpu->regs[rrInstruction->sourceRegister1].value;
             }
 
-            
-            break;
-            
         }
+        if(rrInstruction->sourceRegister2>-1){
 
-        
-    }
+            if(rrInstruction->robSr2 >-1){
+                strcpy(rrInstruction->sourceRegister2Name,rob[rrInstruction->robSr2].bufferName);
 
-    if(rrInstruction->sourceRegister1>-1){
-
-        if(rrInstruction->robSr1 >-1){
-            strcpy(rrInstruction->sourceRegister1Name,rob[rrInstruction->robSr1].bufferName);
-
-            if(rob[rrInstruction->robSr1].completed){
-                rrInstruction->immediateValue1 = rob[rrInstruction->robSr1].result;
+                if(rob[rrInstruction->robSr2].completed){
+                    rrInstruction->immediateValue2 = rob[rrInstruction->robSr2].result;
+                }
+                
+            }
+            else{
+                rrInstruction->immediateValue2 = cpu->regs[rrInstruction->sourceRegister2].value;
             }
 
-        }else{
-            rrInstruction->immediateValue1 = cpu->regs[rrInstruction->sourceRegister1].value;
         }
+        if(rrInstruction->destinationRegister>-1 
+            && (checkIfBranchInstruction(createOpcodeIndex(rrInstruction->opcode)) 
+            || createOpcodeIndex(rrInstruction->opcode) == st)){
 
-    }
-    if(rrInstruction->sourceRegister2>-1){
+            if(rrInstruction->robDest >-1){
+                strcpy(rrInstruction->destinationRegisterName,rob[rrInstruction->robDest].bufferName);
 
-        if(rrInstruction->robSr2 >-1){
-            strcpy(rrInstruction->sourceRegister2Name,rob[rrInstruction->robSr2].bufferName);
-
-            if(rob[rrInstruction->robSr2].completed){
-                rrInstruction->immediateValue2 = rob[rrInstruction->robSr2].result;
+                if(rob[rrInstruction->robDest].completed){
+                    rrInstruction->immediateValue2 = rob[rrInstruction->robDest].result;
+                }
+                
             }
-            
-        }
-        else{
-            rrInstruction->immediateValue2 = cpu->regs[rrInstruction->sourceRegister2].value;
-        }
-
-    }
-    if(rrInstruction->destinationRegister>-1 
-        && (checkIfBranchInstruction(createOpcodeIndex(rrInstruction->opcode)) 
-        || createOpcodeIndex(rrInstruction->opcode) == st)){
-
-         if(rrInstruction->robDest >-1){
-            strcpy(rrInstruction->destinationRegisterName,rob[rrInstruction->robDest].bufferName);
-
-            if(rob[rrInstruction->robDest].completed){
-                rrInstruction->immediateValue2 = rob[rrInstruction->robDest].result;
+            else{
+                rrInstruction->immediateValue2 = cpu->regs[rrInstruction->destinationRegister].value;
             }
-            
-        }
-        else{
-            rrInstruction->immediateValue2 = cpu->regs[rrInstruction->sourceRegister2].value;
-        }
 
-    }
+        }
+    
     
        
 }
@@ -1522,6 +1537,11 @@ void registerRead(Stage  *instr,CPU *cpu,ROB *rob,BTB *btb){
             rrInstruction->stallType = FULL_RESERVATION_STATION;
             createLogForStage(RR,rrInstruction);
         }
+        else if(rob[tailIndex].index >=0){
+            stall = true;
+            rrInstruction->stallType = FULL_REORDER_BUFFER;   
+            createLogForStage(RR,rrInstruction);
+        }
         else{
             rrInstruction->stallType = NO_HAZARD;   
         }
@@ -1529,12 +1549,7 @@ void registerRead(Stage  *instr,CPU *cpu,ROB *rob,BTB *btb){
         if(!stall){        
             renameInstruction(rrInstruction,rob,cpu);
 
-            if(rrInstruction->stallType == FULL_REORDER_BUFFER){
-                stall = true;
-                createLogForStage(RR,rrInstruction);
-            }
-
-            if(!stall){
+            
                 if(checkIfBranchInstruction(createOpcodeIndex(rrInstruction->opcode))){
                     branch(instr,btb);
                 }
@@ -1544,10 +1559,11 @@ void registerRead(Stage  *instr,CPU *cpu,ROB *rob,BTB *btb){
                 findPath(instr);
                 createLogForStage(RR,rrInstruction);
                 addToReserveStation(instr,rob); 
-            }
+            
         }  
-        dispatch(instr,rob);                         
+                              
     }
+    dispatch(instr,rob);   
 }
 void pushToFunctionalUnits(Stage * issueInstruction , Stage* instr){
 
@@ -2034,9 +2050,9 @@ bool retire1(Stage *instr,ROB* rob,CPU *cpu){
 
 }
 
-void retire2(Stage *instr,ROB* rob,CPU *cpu){
+bool retire2(Stage *instr,ROB* rob,CPU *cpu){
     Stage *retire2Instruction = &instr[RE2];
-
+    bool retire2Stop = false;
 
     if(rob[headIndex].completed){
         retire2Instruction->type = RE2;
@@ -2074,9 +2090,16 @@ void retire2(Stage *instr,ROB* rob,CPU *cpu){
                 rob[headIndex].index = -1;
                 incrementHeadIndex();
         }
+        if(createOpcodeIndex(retire2Instruction->opcode) == ret){
+            rob[headIndex].completed = false;
+            rob[headIndex].index = -1;
+            retire2Stop = true;
+        }
         pushDataToNewStage(RE2,COMP2,instr);  
         
     }
+
+    return retire2Stop;
     
 }
 
@@ -2288,7 +2311,8 @@ void processPipeline(char *instrFromFile[300],CPU *cpu){
     log_init();
     ROB *rob = ROB_init();
     //reserveStation_init();
-    bool toStop =false;
+    bool retire1toStop =false;
+    bool retire2toStop =false;
     while(true){
 
         
@@ -2298,13 +2322,13 @@ void processPipeline(char *instrFromFile[300],CPU *cpu){
         
 
         
-        if(cpu->cycle == 21){
-            printf("%d\n",cpu->cycle);
-        }
+        // if(cpu->cycle == 29028){
+        //     printf("%d\n",cpu->cycle);
+        // }
         resetOldInstruction(COMP1,pipelineInstructions);
         resetOldInstruction(COMP2,pipelineInstructions);
-        toStop = retire1(pipelineInstructions,rob,cpu);
-        retire2(pipelineInstructions,rob,cpu);
+        retire1toStop  = retire1(pipelineInstructions,rob,cpu);
+        retire2toStop = retire2(pipelineInstructions,rob,cpu);
         writeBack(pipelineInstructions,rob);
         mem4(pipelineInstructions);        
         divider3(pipelineInstructions);
@@ -2326,12 +2350,29 @@ void processPipeline(char *instrFromFile[300],CPU *cpu){
         decode(pipelineInstructions);
         fetch(instrFromFile, pipelineInstructions,btb);
 
-        indexOfStalledInstr = getStalledInstructionIndex(pipelineInstructions);
+        indexOfStalledInstr = getStalledInstructionIndex(pipelineInstructions,NO_HAZARD);
 
         if(indexOfStalledInstr>-1 ){
 
+            int fullOrderRebuffer = getStalledInstructionIndex(pipelineInstructions,FULL_REORDER_BUFFER);
+            int fullReservationStation = getStalledInstructionIndex(pipelineInstructions,FULL_RESERVATION_STATION);
+            int dataHazard = getStalledInstructionIndex(pipelineInstructions,DATA_HAZARD);
             if(calculateStructuralHazard){ cpu->structuralHazard++; }
-            if(calculateDataHazard){cpu->dataHazard++;}
+            if(calculateDataHazard){
+                cpu->fetchStall++;
+
+                if(fullOrderRebuffer >-1){
+                    cpu->fullReOrderBuffer ++;
+                }
+
+                if(fullReservationStation >-1){
+                    cpu->fullReservationStation++;
+                }
+
+                if(dataHazard >-1){
+                    cpu->dataHazard++;
+                }
+            }
             
         }
 
@@ -2343,13 +2384,16 @@ void processPipeline(char *instrFromFile[300],CPU *cpu){
         }
 
         //print_display(cpu);
-        printLogs(cpu->cycle,rob,cpu);
+        //printLogs(cpu->cycle,rob,cpu);
         //printBTBPrediction(btb);
 
-        if(toStop){
+        if(retire1toStop){
             
             cpu->ipc = ((float)cpu->totalInstructions/(float)cpu->cycle);
-            // printf("%d\n",cpu->cycle);
+            break;
+        }
+        else if(retire2toStop){
+            cpu->ipc = ((float)cpu->totalInstructions/(float)cpu->cycle);
             break;
         }
         cpu->cycle++;
@@ -2384,7 +2428,9 @@ int main(int argc, const char * argv[]) {
 //         return -1;
 //     }
 
-    char* filename = "program3.txt";
+    char* filename = "program4.txt";
+
+    // char* filename = (char*)argv[1];
     
     
 
