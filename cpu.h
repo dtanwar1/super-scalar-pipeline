@@ -5,13 +5,9 @@
 
 #define BTB_COUNT 16
 #define ROB_COUNT 8
-#define STAGE_COUNT 26
+#define STAGE_COUNT 30
 #define RESERVE_STATION_COUNT 4
 
-#define ADDER_UNIT_COUNT 1
-#define MUL_UNIT_COUNT 2
-#define DIV_UNIT_COUNT 3
-#define MM_UNIT_COUNT 4
 
 #define add 0
 #define sub 1
@@ -30,7 +26,8 @@
 #define NO_HAZARD 0
 #define STRUCTURAL_HAZARD 1
 #define DATA_HAZARD 2
-#define FULL_RESERVATION_STATION 2
+#define FULL_RESERVATION_STATION 3
+#define FULL_REORDER_BUFFER 4
 
 #define IF 0
 #define ID 1
@@ -40,39 +37,34 @@
 #define RS2 5
 #define RS1 6
 #define RS0 7
-#define IS 8
-#define ADD 9
-#define MUL1 10
-#define MUL2 11
-#define DIV1 12
-#define DIV2 13
-#define DIV3 14
-#define MM1 15
-#define MM2 16
-#define MM3 17
-#define MM4 18
-#define WB1 19
-#define WB2 20
-#define WB3 21
-#define WB4 22
-#define RE1 23
-#define RE2 24
-#define COMP 25
+#define IS3 8
+#define IS2 9
+#define IS1 10
+#define IS0 11
+#define ADD 12
+#define MUL1 13
+#define MUL2 14
+#define DIV1 15
+#define DIV2 16
+#define DIV3 17
+#define MM1 18
+#define MM2 19
+#define MM3 20
+#define MM4 21
+#define WB1 22
+#define WB2 23
+#define WB3 24
+#define WB4 25
+#define RE1 26
+#define RE2 27
+#define COMP1 28
+#define COMP2 29
 
 
 
 
 
-typedef struct ROB
-{
-   char bufferName[5];
-   int dest;
-   int result;
-   bool e;
-   bool completed;
-   int index;
-    
-} ROB;
+
 
 typedef struct Dependecy{
     int depRegister;
@@ -113,6 +105,18 @@ typedef struct Stage
     int robSr1;
     int robDest;
 } Stage;
+
+typedef struct ROB
+{
+   char bufferName[5];
+   int dest;
+   int result;
+   bool e;
+   bool completed;
+   int index;
+   Stage *reInstr;
+    
+} ROB;
 
 
 typedef struct myLogger
@@ -162,6 +166,9 @@ typedef struct CPU
 	float ipc;
 	int structuralHazard;
 	int dataHazard;
+    int fullReservationStation;
+    int fullReOrderBuffer;
+    int fetchStall;
 
 	
 } CPU;

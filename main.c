@@ -21,9 +21,11 @@ bool calculateStructuralHazard = false;
 bool calculateDataHazard = true;
 int headIndex = 0;
 int tailIndex = 0;
-bool enableLogs = false;
+bool enableLogs = true;
 myLogger *logger;
 bool logHide = false;
+Stage retireBuffer[250];
+int retireBufferIndex = 0;
 
 int createOpcodeIndex(char* opcode){
     int resopcode = -1;
@@ -157,7 +159,10 @@ void createLogForStage(int stage, Stage* instr){
         case RS1:
         case RS2:
         case RS3:
-        case IS:
+        case IS0:
+        case IS1:
+        case IS2:
+        case IS3:
         case ADD:
         case MUL1:
         case MUL2:
@@ -170,22 +175,34 @@ void createLogForStage(int stage, Stage* instr){
         case MM4:
             strcpy(pCounter,instr->pCounter);
             strncpy(opcode, instr->opcode, sizeof(instr->opcode) -1);
+            bool ignore = false;
+            if(checkIfBranchInstruction(createOpcodeIndex(instr->opcode)) || createOpcodeIndex(instr->opcode) == st){
+                ignore = true;
+            }
 
             if(instr->destinationRegister>-1){
                 
                 if(instr->robDest >-1 && instr->immediateValue2 >INT_MIN){
                     sprintf(destinationRegister, "%d", instr->immediateValue2);
                 }
-                else{
+                else if(strlen(instr->destinationRegisterName)>0){
                     sprintf(destinationRegister, "%s", instr->destinationRegisterName);
+                }
+                else{
+                    strcpy(destinationRegister, "R");
+                    sprintf(destinationRegister, "%s%d", destinationRegister,instr->destinationRegister);
                 }
             }
             if(instr->sourceRegister1>-1){
                 if(instr->immediateValue1 > INT_MIN){
                     sprintf(sourceRegister1, "%d", instr->immediateValue1);
                 }
-                else{
+                else if(strlen(instr->sourceRegister1Name)>0){
                     sprintf(sourceRegister1, "%s", instr->sourceRegister1Name);
+                }
+                else{
+                    strcpy(sourceRegister1, "R");
+                    sprintf(sourceRegister1, "%s%d", sourceRegister1,instr->sourceRegister1);   
                 }
                 
             }
@@ -193,34 +210,32 @@ void createLogForStage(int stage, Stage* instr){
                 if(instr->immediateValue2 > INT_MIN){
                     sprintf(sourceRegister2, "%d", instr->immediateValue2);
                 }
-                else{
-                    sprintf(sourceRegister2, "%s", instr->sourceRegister1Name);
+                else if(strlen(instr->sourceRegister2Name)>0){
+                    sprintf(sourceRegister2, "%s", instr->sourceRegister2Name);
                 }
-                sprintf(immVal1, "imm()",instr->immediateValue1);
+                else{
+                    strcpy(sourceRegister2, "R");
+                    sprintf(sourceRegister2, "%s%d", sourceRegister2,instr->sourceRegister2);
+                }
+                //sprintf(immVal1, "imm()",instr->immediateValue1);
             }
 
             if(instr->sourceRegister1>-1 && instr->sourceRegister2>-1){
                 sprintf(immVal1, "imm()",instr->immediateValue1);
             }
+            else if(instr->sourceRegister1>-1 
+            && (createOpcodeIndex(instr->opcode) == ld || createOpcodeIndex(instr->opcode) == st)){
+                sprintf(immVal1, "imm()",instr->immediateValue2);
+            }
             if(instr->sourceRegister1 <0 && instr->immediateValue1>INT_MIN){
-
                 sprintf(immVal1, "imm(#%d)",instr->immediateValue1);
             }
-            if(instr->sourceRegister2 <0 && instr->immediateValue2>INT_MIN && !checkIfBranchInstruction(createOpcodeIndex(instr->opcode))){
+            if(instr->sourceRegister2 <0 && instr->immediateValue2>INT_MIN 
+                && (!ignore)
+                ){
                 sprintf(immVal2, "imm(#%d)", instr->immediateValue2);
             }
-            if(stage!=IS){
-                sprintf(stageLog,"%s%s %s %s %s %s %s %s",
-                                pCounter,
-                                ":",
-                                opcode,
-                                strlen(destinationRegister) > 0 ? destinationRegister :" ",
-                                strlen(sourceRegister1) > 0 ? sourceRegister1 :" ",
-                                strlen(sourceRegister2) > 0 ? sourceRegister2 :" ",
-                                strlen(immVal1) > 0 ? immVal1 :" ",
-                                strlen(immVal2) > 0 ? immVal2 :"");
-            }
-            else if(stage == IS){
+            if(stage == IS0 || stage == IS1 || stage == IS2 || stage == IS3){
                  
                  if(instr->path == ADD){
                     strcpy(path,"=> Add");
@@ -242,6 +257,17 @@ void createLogForStage(int stage, Stage* instr){
                                 strlen(immVal2) > 0 ? immVal2 :"",
                                 path);
             }
+            else{
+                sprintf(stageLog,"%s%s %s %s %s %s %s %s",
+                                pCounter,
+                                ":",
+                                opcode,
+                                strlen(destinationRegister) > 0 ? destinationRegister :" ",
+                                strlen(sourceRegister1) > 0 ? sourceRegister1 :" ",
+                                strlen(sourceRegister2) > 0 ? sourceRegister2 :" ",
+                                strlen(immVal1) > 0 ? immVal1 :" ",
+                                strlen(immVal2) > 0 ? immVal2 :"");
+            }
 
             //logS->logInfo = malloc(sizeof(&stageLog));
             strcpy(logS->logInfo,stageLog);
@@ -254,7 +280,8 @@ void createLogForStage(int stage, Stage* instr){
             strcpy(pCounter,instr->pCounter);
             strncpy(opcode, instr->opcode, sizeof(instr->opcode) -1);
             if(checkIfBranchInstruction(createOpcodeIndex(instr->opcode))
-                || createOpcodeIndex(instr->opcode) == ret){
+                || createOpcodeIndex(instr->opcode) == ret
+                || createOpcodeIndex(instr->opcode) == st){
 
                      sprintf(stageLog,"%s%s %s",
                                 pCounter,
@@ -285,7 +312,8 @@ void createLogForStage(int stage, Stage* instr){
         case RE2:
             strcpy(pCounter,instr->pCounter);
             if(checkIfBranchInstruction(createOpcodeIndex(instr->opcode)) 
-                || createOpcodeIndex(instr->opcode) == ret){
+                || createOpcodeIndex(instr->opcode) == ret
+                || createOpcodeIndex(instr->opcode) == st){
                  sprintf(stageLog,"%s%s %s",
                                 pCounter,
                                 ":",
@@ -371,10 +399,7 @@ int checkIfRegisterPresent(Dependency dependentInstructionInfo[11],int regr){
     }
     return index;
 }
-void resetOldInstruction(int oldStage,Stage *stage){
-    Stage *oldInstruction = &stage[oldStage];
-
-    if(oldInstruction->index >-1){
+void resetValues(Stage *oldInstruction){
         oldInstruction->index = -1 ;
         oldInstruction->counter = -1;
         oldInstruction->destinationRegister = -1;
@@ -409,6 +434,12 @@ void resetOldInstruction(int oldStage,Stage *stage){
             oldInstruction->dependentInstructionInfo[i].depRegister =-1;
             oldInstruction->tempResult =INT_MIN;
         }
+}
+void resetOldInstruction(int oldStage,Stage *stage){
+    Stage *oldInstruction = &stage[oldStage];
+
+    if(oldInstruction->index >-1){
+        resetValues(oldInstruction);
     }
 
 }
@@ -761,19 +792,37 @@ bool checkIfReservationStationFull(Stage *instr){
 }
 void renameInstruction(Stage *rrInstruction,ROB *rob,CPU *cpu){
 
+    bool dontcheck = false;
+
+    if(checkIfBranchInstruction(createOpcodeIndex(rrInstruction->opcode)) 
+    || createOpcodeIndex(rrInstruction->opcode) == st){
+        dontcheck = true;
+    }
+
     for(int i=0;i<ROB_COUNT;i++){
 
         if(rrInstruction->destinationRegister>-1 && rrInstruction->robDest >-1){
             break;
         }
-        else if(rrInstruction->robDest <0 && rrInstruction->destinationRegister>-1 && strlen(rrInstruction->destinationRegisterName) == 0){
-            strcpy(rrInstruction->destinationRegisterName,rob[tailIndex].bufferName);
-            rob[tailIndex].completed = false;
-            rob[tailIndex].dest = rrInstruction->destinationRegister;
-            rob[tailIndex].index = rrInstruction->index;
-            cpu->regs[rrInstruction->destinationRegister].is_writing = false;
-            cpu->regs[rrInstruction->destinationRegister].tag = tailIndex;
-            incrementTailIndex();
+        else if(rrInstruction->robDest <0 && rrInstruction->destinationRegister>-1 && strlen(rrInstruction->destinationRegisterName) == 0
+         & !dontcheck){
+
+            if(rob[tailIndex].index <0){
+                rrInstruction->stallType = NO_HAZARD;
+                strcpy(rrInstruction->destinationRegisterName,rob[tailIndex].bufferName);
+                rob[tailIndex].completed = false;
+                rob[tailIndex].dest = rrInstruction->destinationRegister;
+                rob[tailIndex].index = rrInstruction->index;
+                
+                cpu->regs[rrInstruction->destinationRegister].is_writing = false;
+                cpu->regs[rrInstruction->destinationRegister].tag = tailIndex;
+                incrementTailIndex();
+
+            }else{
+                rrInstruction->stallType = FULL_REORDER_BUFFER;
+            }
+
+            
             break;
             
         }
@@ -830,60 +879,148 @@ void renameInstruction(Stage *rrInstruction,ROB *rob,CPU *cpu){
     
        
 }
-bool dispatch(Stage *instr, ROB* rob){
+bool fwdData(Stage *rsInstruction, ROB *rob, Stage *instr){
+    bool fwd =false;
+
+    if(rsInstruction->index >-1){
+
+        if(rsInstruction->immediateValue1==INT_MIN){
+            if(rsInstruction->robSr1>-1){
+                int instrIndex =rob[rsInstruction->robSr1].index;
+                int stageI =getStageFromIndex(instrIndex,instr);
+                if(stageI == WB1 || stageI == WB2 || stageI == WB3 || stageI == WB4){
+                    Stage *dependentInstr = &instr[stageI];
+                    rsInstruction->immediateValue1 = dependentInstr->tempResult;
+                }
+            }
+        }
+        if(rsInstruction->immediateValue2 == INT_MIN){
+            if(rsInstruction->robSr2>-1){
+                int instrIndex =rob[rsInstruction->robSr2].index;
+                int stageI =getStageFromIndex(instrIndex,instr);
+                if(stageI == WB1 || stageI == WB2 || stageI == WB3 || stageI == WB4){
+                    Stage *dependentInstr = &instr[stageI];
+                    rsInstruction->immediateValue2 = dependentInstr->tempResult;
+                }
+            }
+            else if(rsInstruction->robDest>-1){
+                int instrIndex =rob[rsInstruction->robDest].index;
+                int stageI =getStageFromIndex(instrIndex,instr);
+                if(stageI == WB1 || stageI == WB2 || stageI == WB3 || stageI == WB4){
+                    Stage *dependentInstr = &instr[stageI];
+                    rsInstruction->immediateValue2 = dependentInstr->tempResult;
+                }
+
+            }           
+        }
+
+        if(rsInstruction->immediateValue1 >INT_MIN && rsInstruction->immediateValue2 >INT_MIN){
+                fwd =true;  
+        }
+        else if(createOpcodeIndex(rsInstruction->opcode) == ret){
+                    fwd =true;
+        }else if(createOpcodeIndex(rsInstruction->opcode) == set && rsInstruction->immediateValue1>INT_MIN){
+                    fwd =true;
+        }
+        else if(createOpcodeIndex(rsInstruction->opcode) == ld && rsInstruction->immediateValue1>INT_MIN){
+                    fwd =true;
+        }
+
+    }
+    
+    return fwd;
+}
+void dispatch(Stage *instr, ROB* rob){
         Stage *rs0Instruction = &instr[RS0]; 
         Stage *rs1Instruction = &instr[RS1]; 
         Stage *rs2Instruction = &instr[RS2]; 
         Stage *rs3Instruction = &instr[RS3]; 
+        Stage *rrInstruction = &instr[RR]; 
+        int rS0Path = -1;
+        int rS1Path = -1;
+        int rS2Path =-1;
+        int rS3Path =-1;
+        
 
+        if(rs0Instruction->index>-1){
+            rS0Path= rs0Instruction->path;
+            createLogForStage(RS0,rs0Instruction);
+        }if(rs1Instruction->index>-1){
+            rS1Path = rs1Instruction->path;
+            createLogForStage(RS1,rs1Instruction);
+        }if(rs2Instruction->index>-1){
+            rS2Path = rs2Instruction->path;
+            createLogForStage(RS2,rs2Instruction);
+        }if(rs3Instruction->index>-1){
+            rS3Path = rs3Instruction->path;
+            createLogForStage(RS3,rs3Instruction);
+        }
+
+        bool fwdRS0 = fwdData(rs0Instruction,rob,instr);
+        bool fwdRS1 = fwdData(rs1Instruction,rob,instr);
+        bool fwdRS2 = fwdData(rs2Instruction,rob,instr);
+        bool fwdRS3 = fwdData(rs3Instruction,rob,instr);
+
+        bool rs0Pushed = false;
+        bool rs1Pushed = false;
+        bool rs2Pushed = false;
+        bool rs3Pushed = false;
+        
         if(rs0Instruction->index > -1 ){
 
-            if(rs0Instruction->immediateValue1==INT_MIN){
-                if(rs0Instruction->robSr1>-1){
-                    int instrIndex =rob[rs0Instruction->robSr1].index;
-                    int stageI =getStageFromIndex(instrIndex,instr);
-                    if(stageI == WB1 || stageI == WB2 || stageI == WB3 || stageI == WB4){
-                        Stage *dependentInstr = &instr[stageI];
-                        rs0Instruction->immediateValue1 = dependentInstr->tempResult;
-                    }
+            if(fwdRS0){
+                pushDataToNewStage(RS0,IS0,instr);
+                rs0Pushed=true;
+            }
+            if(fwdRS1){
+                if(rs0Pushed && rS0Path == rS1Path){}
+                else{
+                    pushDataToNewStage(RS1,IS1,instr);
+                    rs1Pushed =true;
                 }
             }
-            if(rs0Instruction->immediateValue2 == INT_MIN){
-                if(rs0Instruction->robSr2>-1){
-                    int instrIndex =rob[rs0Instruction->robSr2].index;
-                    int stageI =getStageFromIndex(instrIndex,instr);
-                    if(stageI == WB1 || stageI == WB2 || stageI == WB3 || stageI == WB4){
-                        Stage *dependentInstr = &instr[stageI];
-                        rs0Instruction->immediateValue2 = dependentInstr->tempResult;
-                    }
-                }                
+            if(fwdRS2){
+                if(rs0Pushed && rS0Path == rS2Path){}
+                else if(rs1Pushed && rS1Path == rS2Path){}
+                else{
+                    pushDataToNewStage(RS2,IS2,instr);
+                    rs2Pushed = true;
+                }
             }
-           
-            if(rs0Instruction->immediateValue1 >INT_MIN && rs1Instruction->immediateValue2 >INT_MIN){
-                pushDataToNewStage(RS0,IS,instr);
-            }
-            else if(createOpcodeIndex(rs0Instruction->opcode) == ret){
-                pushDataToNewStage(RS0,IS,instr);   
+            if(fwdRS3){
+                if(rs0Pushed && rS0Path == rS3Path){}
+                else if(rs1Pushed && rS1Path == rS3Path){}
+                else if(rs2Pushed && rS2Path == rS3Path){}
+                else{
+                    pushDataToNewStage(RS3,IS3,instr);
+                    bool rs3Pushed = true;
+                }
             }
 
-            if(rs0Instruction->index <0 && rs1Instruction->index >-1){
-                pushDataToNewStage(RS1,RS0,instr);
-                rs0Instruction = &instr[RS0];
-                createLogForStage(RS0,rs0Instruction);
+            if(rs0Instruction->index <0){
+                if(rs1Instruction->index >-1){
+                    pushDataToNewStage(RS1,RS0,instr);
+                }else if(rs2Instruction->index >-1){
+                    pushDataToNewStage(RS2,RS0,instr);
+                }else if(rs3Instruction->index >-1){
+                    pushDataToNewStage(RS3,RS0,instr);
+                }
+            }  
+            if(rs1Instruction->index <0){
+                if(rs2Instruction->index >-1){
+                    pushDataToNewStage(RS2,RS1,instr);
+                }else if(rs3Instruction->index >-1){
+                    pushDataToNewStage(RS3,RS1,instr);
+                }
             }    
-            if(rs1Instruction->index <0 && rs2Instruction->index >-1){
-                pushDataToNewStage(RS2,RS1,instr);
-                rs1Instruction = &instr[RS1];
-                createLogForStage(RS1,rs1Instruction);
-            }
-            if(rs2Instruction->index <0 && rs3Instruction->index >-1){
-                pushDataToNewStage(RS3,RS2,instr);
-                rs2Instruction = &instr[RS2];
-                createLogForStage(RS2,rs2Instruction);
-            }
+            if(rs2Instruction->index <0){
+                if(rs3Instruction->index >-1){
+                    pushDataToNewStage(RS3,RS2,instr);
+                }
+            }    
         }
 }
-bool addToReserveStation(Stage *instr){
+bool addToReserveStation(Stage *instr,ROB* rob){
 
     Stage *rrInstruction = &instr[RR]; 
     bool spaceFull = false;
@@ -899,22 +1036,49 @@ bool addToReserveStation(Stage *instr){
         Stage *rs1Instruction = &instr[RS1]; 
         Stage *rs2Instruction = &instr[RS2]; 
         Stage *rs3Instruction = &instr[RS3]; 
+        Stage *rrInstruction = &instr[RR]; 
+
+        
         if(rs0Instruction->index <0){
+            if(checkIfBranchInstruction(createOpcodeIndex(rrInstruction->opcode))
+                || createOpcodeIndex(rrInstruction->opcode) == st
+                || createOpcodeIndex(rrInstruction->opcode) == ret){
+
+                rob[tailIndex].completed = false;
+                rob[tailIndex].index = rrInstruction->index;
+                incrementTailIndex();
+            }            
             pushDataToNewStage(RR,RS0,instr);
             rs0Instruction = &instr[RS0];
             createLogForStage(RS0,rs0Instruction);
-        }
-        else if(rs1Instruction->index <0){
+        }else if(rs1Instruction->index <0){
+            if(checkIfBranchInstruction(createOpcodeIndex(rrInstruction->opcode))
+                || createOpcodeIndex(rrInstruction->opcode) == st){
+
+                rob[tailIndex].completed = false;
+                rob[tailIndex].index = rrInstruction->index;
+                incrementTailIndex();
+            }
             pushDataToNewStage(RR,RS1,instr);
             rs1Instruction = &instr[RS1];
             createLogForStage(RS1,rs1Instruction);
-        }
-        else if(rs2Instruction->index <0){
+        }else if(rs2Instruction->index <0){
+            if(checkIfBranchInstruction(createOpcodeIndex(rrInstruction->opcode))
+                || createOpcodeIndex(rrInstruction->opcode) == st){
+                rob[tailIndex].completed = false;
+                rob[tailIndex].index = rrInstruction->index;
+                incrementTailIndex();
+            }
             pushDataToNewStage(RR,RS2,instr);
             rs2Instruction = &instr[RS2];
             createLogForStage(RS2,rs2Instruction);
-        }
-        else if(rs3Instruction->index <0){
+        }else if(rs3Instruction->index <0){
+            if(checkIfBranchInstruction(createOpcodeIndex(rrInstruction->opcode))
+                || createOpcodeIndex(rrInstruction->opcode) == st){
+                rob[tailIndex].completed = false;
+                rob[tailIndex].index = rrInstruction->index;
+                incrementTailIndex();
+            }
             pushDataToNewStage(RR,RS3,instr);
             rs3Instruction = &instr[RS3];
             createLogForStage(RS3,rs3Instruction);
@@ -927,6 +1091,52 @@ bool addToReserveStation(Stage *instr){
     
 }
 
+int regPresent(int registerV, ROB *rob){
+    int robIndex = -1;
+    int count = 0;
+    int terminatingIndex = -1;
+
+    for(int i=headIndex; ; ){
+
+         if(count == 0){
+            if(headIndex == tailIndex ){
+                if(headIndex == 0){
+                    terminatingIndex = ROB_COUNT -1;
+                }
+                else{
+                    terminatingIndex = tailIndex-1;
+                }
+            }else if(headIndex > tailIndex){
+                terminatingIndex = tailIndex;
+            }
+        }
+
+        if(rob[i].dest == registerV && !rob[i].completed){
+            robIndex =i;
+            break;
+        }
+          i = i>=7?0:i+1;
+
+            int temp =  terminatingIndex+1>=7 ? 0: terminatingIndex+1;
+
+            if(i == temp){
+                break;
+            }
+    }
+    return robIndex;
+}
+
+int registerPresentInRob(int registerV, ROB *rob){
+    int robIndex = -1;
+
+    for(int i=0;i<ROB_COUNT;i++){
+
+        if(rob[i].dest == registerV){
+            robIndex =i;
+        }
+    }
+    return robIndex;
+}
 void fetch(char *instrFromFile[300],Stage  *pipelineInstr,BTB *btb){
 
     int index = 0;
@@ -957,7 +1167,7 @@ void fetch(char *instrFromFile[300],Stage  *pipelineInstr,BTB *btb){
             
             if(rrInstruction->index >-1 ){
 
-                if(rrInstruction->stallType == DATA_HAZARD){
+                if(rrInstruction->stallType >NO_HAZARD){
                     stall = true;
                     fetchInstruction->orignalInstruction = instrFromFile[index];
                     //logStageAndInstruction(IF,fetchInstruction->orignalInstruction);
@@ -1045,7 +1255,7 @@ void decode(Stage  *instr){
         
         if(rrInstruction->index>-1 ){
             
-            if(rrInstruction->stallType == DATA_HAZARD){
+            if(rrInstruction->stallType > NO_HAZARD){
                 //logStageAndInstruction(ID,decodeInstruction->orignalInstruction);   
                 //createLogForStage(ID,decodeInstruction);
                 stall = true;
@@ -1054,89 +1264,95 @@ void decode(Stage  *instr){
 
         if(decodeInstruction->stallType == STRUCTURAL_HAZARD){
             stall = true;
+            
         }
 
         
+            decodeInstruction->destinationRegister = -1;
+            decodeInstruction->sourceRegister1 = -1;
+            decodeInstruction->sourceRegister2 = -1;
+            decodeInstruction->immediateValue1 = INT_MIN;
+            decodeInstruction->immediateValue2 = INT_MIN;
+        
 
-                    //logStageAndInstruction(ID,decodeInstruction->orignalInstruction); 
-                    char* backupOrgInstr = malloc(sizeof(decodeInstruction->orignalInstruction));
-                    strcpy(backupOrgInstr, decodeInstruction->orignalInstruction);  
-                    char *ptr = strtok(backupOrgInstr, " ");
-                    int loopIndex = 0;
-                    while(ptr!=NULL){
+        char* backupOrgInstr = malloc(sizeof(decodeInstruction->orignalInstruction));
+        strcpy(backupOrgInstr, decodeInstruction->orignalInstruction);  
+        char *ptr = strtok(backupOrgInstr, " ");
+        int loopIndex = 0;
+        while(ptr!=NULL){
 
-                        if(loopIndex == 0){
-                            strcpy(decodeInstruction->pCounter, ptr);
-                        }
+            if(loopIndex == 0){
+                strcpy(decodeInstruction->pCounter, ptr);
+            }
 
-                        if(loopIndex == 1){
-                            decodeInstruction->opcode = malloc(sizeof(ptr));
-                            strcpy(decodeInstruction->opcode, ptr);
+            if(loopIndex == 1){
+                decodeInstruction->opcode = malloc(sizeof(ptr));
+                strcpy(decodeInstruction->opcode, ptr);
 
-                        }
-                        if(loopIndex >= 2){
-                            char* value = malloc(sizeof(ptr) -1);
-                            strncpy(value, ptr + 1, sizeof(ptr) -1);
-                            //printf("'%s'\n", value);
+            }
+            if(loopIndex >= 2){
+                char* value = malloc(sizeof(ptr) -1);
+                strncpy(value, ptr + 1, sizeof(ptr) -1);
+                //printf("'%s'\n", value);
 
-                            switch (createOpcodeIndex(decodeInstruction->opcode))
-                            {
-                                case add:
-                                case sub:
-                                case mul:
-                                case div:
-                                case set:
-                                case ld:
-                                case st:
-                                case bez:
-                                case bgez:
-                                case bgtz:
-                                case blez:
-                                case bltz:
-                                
+                switch (createOpcodeIndex(decodeInstruction->opcode))
+                {
+                    case add:
+                    case sub:
+                    case mul:
+                    case div:
+                    case set:
+                    case ld:
+                    case st:
+                    case bez:
+                    case bgez:
+                    case bgtz:
+                    case blez:
+                    case bltz:
+                    
 
-                                    if(strchr(ptr,'R')){
-                                    
-                                        if(decodeInstruction->destinationRegister == -1){
-                                            decodeInstruction->destinationRegister = atoi(value);
-                                        }else{
+                        if(strchr(ptr,'R')){
+                        
+                            if(decodeInstruction->destinationRegister == -1){
+                                decodeInstruction->destinationRegister = atoi(value);
+                            }else{
 
-                                            if(decodeInstruction->sourceRegister1 == -1){
-                                                decodeInstruction->sourceRegister1 = atoi(value); 
-                                            }
-                                            else{
-                                                decodeInstruction->sourceRegister2 = atoi(value); 
-                                            }  
-                                        }
-
-                                        
-                                    }
-                                    else{
-                                        if(decodeInstruction->immediateValue1 == INT_MIN && decodeInstruction->sourceRegister1 == -1){
-                                            decodeInstruction->immediateValue1 = atoi(value);
-                                        }else{
-                                            decodeInstruction->immediateValue2 = atoi(value);   
-                                        }
-                                    
-                                    }
-                                
-                                break;
-                            
-                                default:
-                                    break;
+                                if(decodeInstruction->sourceRegister1 == -1){
+                                    decodeInstruction->sourceRegister1 = atoi(value); 
+                                }
+                                else{
+                                    decodeInstruction->sourceRegister2 = atoi(value); 
+                                }  
                             }
-                        }
-                        //printf("'%s'\n", ptr);
-                        ptr = strtok(NULL, " ");
 
-                        loopIndex++;
-                    }
-                    createLogForStage(ID,decodeInstruction);
+                            
+                        }
+                        else{
+                            if(decodeInstruction->immediateValue1 == INT_MIN && decodeInstruction->sourceRegister1 == -1){
+                                decodeInstruction->immediateValue1 = atoi(value);
+                            }else{
+                                decodeInstruction->immediateValue2 = atoi(value);   
+                            }
+                        
+                        }
                     
-                    if(!stall){
-                        pushDataToNewStage(ID,IA,instr);
-                    }
-                    
+                    break;
+                
+                    default:
+                        break;
+                }
+            }
+            //printf("'%s'\n", ptr);
+            ptr = strtok(NULL, " ");
+
+            loopIndex++;
+        }
+        createLogForStage(ID,decodeInstruction);
+        
+        if(!stall){
+            pushDataToNewStage(ID,IA,instr);
+        }
+        
         
    }
     
@@ -1150,7 +1366,7 @@ void instructionAnalyse(Stage  *instr, ROB *rob){
         
         Stage *rrInstruction = &instr[RR]; 
         if(rrInstruction->index >-1 ){
-            if(rrInstruction->stallType == DATA_HAZARD){
+            if(rrInstruction->stallType > NO_HAZARD){
                 stall = true;
             }
         }
@@ -1164,44 +1380,83 @@ void instructionAnalyse(Stage  *instr, ROB *rob){
                 
                     int arrayIndex = 0;
 
-                    for(int i=0; i<ROB_COUNT;i++){    
+                    int terminatingIndex = -1;
+
+                    int count = 0;
+
+                    for(int i=headIndex; ;){    
+
+                        if(count == 0){
+                            if(headIndex == tailIndex ){
+                                if(headIndex == 0){
+                                    terminatingIndex = ROB_COUNT -1;
+                                }
+                                else{
+                                    terminatingIndex = tailIndex-1;
+                                }
+                            }else if(headIndex > tailIndex){
+                                terminatingIndex = tailIndex;
+                            }
+                        }
+
+                       
 
                         int dest =rob[i].dest;
                         
                         int stage = getStageFromIndex(rob[i].index,instr);
 
-                        if(dest>-1 && stage< RE1 ){
+                        
+
+                        bool proceed =false;
+                        if(stage >-1 && stage<RE1){
+                            proceed = true;
+                        }
+                        else if(stage ==-1 && rob[i].completed && i!=headIndex){
+                            proceed = true;
+                        }
+
+                        if(dest>-1 && proceed){
                             if(checkIfBranchInstruction(createOpcodeIndex(analyseInstruction->opcode)) && dest == analyseInstruction->destinationRegister){
-                                // analyseInstruction->dependentInstructionInfo[arrayIndex].robIndex = i;
-                                // analyseInstruction->dependentInstructionInfo[arrayIndex].depRegister = dest;  
-                                // analyseInstruction->dependentInstructionInfo[arrayIndex].index = rob[i].index;  
-                                analyseInstruction->robDest = i;
-                                //strcpy(analyseInstruction->dependentInstructionInfo[arrayIndex].name,rob[i].bufferName);
+
+                                
+                                    analyseInstruction->robDest = i;
+                                
+                                
                                 
                             }
                             else if(createOpcodeIndex(analyseInstruction->opcode) == st && dest == analyseInstruction->destinationRegister){
-                                // analyseInstruction->dependentInstructionInfo[arrayIndex].robIndex = i;
-                                // analyseInstruction->dependentInstructionInfo[arrayIndex].depRegister = dest;  
-                                // analyseInstruction->dependentInstructionInfo[arrayIndex].index = rob[i].index;
-                                analyseInstruction->robDest = i;
-                                //strcpy(analyseInstruction->dependentInstructionInfo[arrayIndex].name,rob[i].bufferName);
+                                
+                                
+                                    analyseInstruction->robDest = i;
+                                
+                                
                             }
                             else{
                                 if(dest == analyseInstruction->sourceRegister1 ){
-                                    // analyseInstruction->dependentInstructionInfo[arrayIndex].robIndex = i;
-                                    // analyseInstruction->dependentInstructionInfo[arrayIndex].depRegister = dest;
-                                    // analyseInstruction->dependentInstructionInfo[arrayIndex].index = rob[i].index;
-                                    analyseInstruction->robSr1 = i;
-                                    //strcpy(analyseInstruction->dependentInstructionInfo[arrayIndex].name,rob[i].bufferName);   
+                                    
+                                       
+                                    
+                                        
+
+                                    
+                                        analyseInstruction->robSr1 = i;
+                                    
                                 }
                                 if(dest == analyseInstruction->sourceRegister2){
-                                    // analyseInstruction->dependentInstructionInfo[arrayIndex].robIndex = i;
-                                    // analyseInstruction->dependentInstructionInfo[arrayIndex].depRegister = dest;
-                                    // analyseInstruction->dependentInstructionInfo[arrayIndex].index = rob[i].index;
-                                    analyseInstruction->robSr2 = i;
-                                    //strcpy(analyseInstruction->dependentInstructionInfo[arrayIndex].name,rob[i].bufferName);   
+                                    
+                                    
+                                    
+                                        analyseInstruction->robSr2 = i;   
+                                    
                                 }
                             }
+                        } 
+
+                        i = i>=7?0:i+1;
+                        int temp =  terminatingIndex+1>7 ? 0: terminatingIndex+1;
+
+                        if(i == temp){
+                            break;
                         }
                         
                     } 
@@ -1216,7 +1471,42 @@ void instructionAnalyse(Stage  *instr, ROB *rob){
     }
 }
 
+void findPath(Stage  *instr){
+    Stage *rrInstruction = &instr[RR];
 
+    if(rrInstruction->index >-1){
+        switch (createOpcodeIndex(rrInstruction->opcode))
+        {
+            case set:
+            case add:
+            case sub:
+            case bez:
+            case bgez:
+            case bgtz:
+            case blez:
+            case bltz:
+            case ret:
+                rrInstruction->path = ADD;
+                break;
+
+            case mul:
+                rrInstruction->path = MUL1;
+                break;
+
+            case div:
+                rrInstruction->path = DIV1;
+                break;
+            
+            case ld:
+            case st:
+                rrInstruction->path = MM1;
+                break;
+        
+            default:
+                break;
+        }
+    }
+}
 
 void registerRead(Stage  *instr,CPU *cpu,ROB *rob,BTB *btb){
     Stage *rrInstruction = &instr[RR]; 
@@ -1229,79 +1519,90 @@ void registerRead(Stage  *instr,CPU *cpu,ROB *rob,BTB *btb){
         
         if(isFull){
             stall = true;
-            rrInstruction->stallType == FULL_RESERVATION_STATION;
+            rrInstruction->stallType = FULL_RESERVATION_STATION;
             createLogForStage(RR,rrInstruction);
+        }
+        else{
+            rrInstruction->stallType = NO_HAZARD;   
         }
 
         if(!stall){        
             renameInstruction(rrInstruction,rob,cpu);
 
-            if(checkIfBranchInstruction(createOpcodeIndex(rrInstruction->opcode))){
-                branch(instr,btb);
+            if(rrInstruction->stallType == FULL_REORDER_BUFFER){
+                stall = true;
+                createLogForStage(RR,rrInstruction);
             }
-            else if(createOpcodeIndex(rrInstruction->opcode) == ret){
-                finalSquashed =squashInstruction(instr);
+
+            if(!stall){
+                if(checkIfBranchInstruction(createOpcodeIndex(rrInstruction->opcode))){
+                    branch(instr,btb);
+                }
+                else if(createOpcodeIndex(rrInstruction->opcode) == ret){
+                    finalSquashed =squashInstruction(instr);
+                }
+                findPath(instr);
+                createLogForStage(RR,rrInstruction);
+                addToReserveStation(instr,rob); 
             }
-            
-            createLogForStage(RR,rrInstruction);
-            addToReserveStation(instr); 
         }  
         dispatch(instr,rob);                         
     }
 }
-void issue(Stage  *instr, ROB* rob){
-    Stage *issueInstruction = &instr[IS];
+void pushToFunctionalUnits(Stage * issueInstruction , Stage* instr){
 
     if(issueInstruction->index >-1){
 
-        
-
-        switch (createOpcodeIndex(issueInstruction->opcode))
+        switch (issueInstruction->path)
         {
-            case set:
-            case add:
-            case sub:
-            case bez:
-            case bgez:
-            case bgtz:
-            case blez:
-            case bltz:
-            case ret:
-                if(checkIfBranchInstruction(createOpcodeIndex(issueInstruction->opcode))){
-                    //  rob[tailIndex].completed = false;
-                    //  incrementTailIndex();
-                }
-                issueInstruction->path = ADD;
-                createLogForStage(IS,issueInstruction);  
-                pushDataToNewStage(IS,ADD,instr);                          
+            case ADD:
+                //issueInstruction->path = ADD;
+                createLogForStage(issueInstruction->type,issueInstruction);  
+                pushDataToNewStage(issueInstruction->type,ADD,instr);                          
                 break;
 
-            case mul:
-                issueInstruction->path = MUL1;
-                createLogForStage(IS,issueInstruction);  
-                pushDataToNewStage(IS,MUL1,instr);
+            case MUL1:
+                //issueInstruction->path = MUL1;
+                createLogForStage(issueInstruction->type,issueInstruction);  
+                pushDataToNewStage(issueInstruction->type,MUL1,instr);
                 break;
 
-            case div:
-                issueInstruction->path = DIV1;
-                createLogForStage(IS,issueInstruction);  
-                pushDataToNewStage(IS,DIV1,instr);
+            case DIV1:
+                //issueInstruction->path = DIV1;
+                createLogForStage(issueInstruction->type,issueInstruction);  
+                pushDataToNewStage(issueInstruction->type,DIV1,instr);
                 break;
             
-            case ld:
-            case st:
-                issueInstruction->path = MM1;
-                createLogForStage(IS,issueInstruction);  
-                pushDataToNewStage(IS,MM1,instr);
+            case MM1:
+                //issueInstruction->path = MM1;
+                createLogForStage(issueInstruction->type,issueInstruction);  
+                pushDataToNewStage(issueInstruction->type,MM1,instr);
                 break;
         
             default:
                 break;
         }
     }
+}
+void issue(Stage  *instr, ROB* rob){
+    Stage *issue0Instruction = &instr[IS0];
+    Stage *issue1Instruction = &instr[IS1];
+    Stage *issue2Instruction = &instr[IS2];
+    Stage *issue3Instruction = &instr[IS3];
+
+    pushToFunctionalUnits(issue0Instruction,instr);
+    pushToFunctionalUnits(issue1Instruction,instr);
+    pushToFunctionalUnits(issue2Instruction,instr);
+    pushToFunctionalUnits(issue3Instruction,instr);
+
+    
 } 
 void adder(Stage  *instr){
     Stage *addInstruction = &instr[ADD]; 
+    Stage *wb1Instruction = &instr[WB1]; 
+    Stage *wb2Instruction = &instr[WB2]; 
+    Stage *wb3Instruction = &instr[WB3]; 
+    Stage *wb4Instruction = &instr[WB4]; 
 
     if(addInstruction->index > -1){
 
@@ -1326,9 +1627,12 @@ void adder(Stage  *instr){
                                 break;
                                 
 
-            }          
-            pushDataToNewStage(ADD,WB1,instr);
-                            
+            }   
+
+            if(wb1Instruction->index <0)       
+                pushDataToNewStage(ADD,WB1,instr);
+            else if(wb2Instruction->index <0)
+                pushDataToNewStage(ADD,WB2,instr);
         
     }
 }
@@ -1376,7 +1680,7 @@ void multiplier2(Stage  *instr){
             
             
             
-                pushDataToNewStage(MUL2,WB2,instr);
+            pushDataToNewStage(MUL2,WB2,instr);
                                                         
     }
 }
@@ -1524,7 +1828,7 @@ void mem3(Stage  *instr){
             {
                             case ld:
                             case st:
-                                     mm3Instruction->immediateValue1 = ((mm3Instruction->immediateValue1)/4);
+                                     //mm3Instruction->immediateValue1 = ((mm3Instruction->immediateValue1)/4);
                                 break;
 
                             default:
@@ -1549,6 +1853,7 @@ void mem4(Stage  *instr){
             switch (createOpcodeIndex(mm4Instruction->opcode))
             {
                             case ld:
+                                mm4Instruction->immediateValue1 = ((mm4Instruction->immediateValue1)/4);
                                 mm4Instruction->tempResult = atoi(memArray[mm4Instruction->immediateValue1]);
                                  if(calculateStructuralHazard){
                                         //tocheck
@@ -1562,6 +1867,7 @@ void mem4(Stage  *instr){
                                 break;
 
                             case st:
+                                mm4Instruction->immediateValue1 = ((mm4Instruction->immediateValue1)/4);
                                 sprintf(snum, "%d", mm4Instruction->immediateValue2);
                                 strncpy(memArray[mm4Instruction->immediateValue1], snum, sizeof(snum));
                                 break;
@@ -1575,44 +1881,68 @@ void mem4(Stage  *instr){
         
     }
 }
-void wb(Stage* writeback, ROB *rob){
+int getRobIndexFromInstrIndex(ROB *rob, int instrIndex){
+    int robIndex = -1;
+    for(int i = 0;i<ROB_COUNT;i++){
+        if(rob[i].index == instrIndex){
+            robIndex = i;
+            break;
+        }
+    }
+    return robIndex;
+}
+void wb(Stage* wrback, ROB *rob, Stage* instr){
 
-        if(strcmp(writeback->destinationRegisterName,rob[headIndex].bufferName) == 0){
-        
-            switch (createOpcodeIndex(writeback->opcode))
-            {
-                                case add:    
-                                case mul:
-                                case sub:
-                                case div:
-                                case set:
-                                case ld:
+            int instrIndex =getRobIndexFromInstrIndex(rob,wrback->index);
+
+            if(instrIndex>-1){
+
+                switch (createOpcodeIndex(wrback->opcode))
+                {
+                                    case add:    
+                                    case mul:
+                                    case sub:
+                                    case div:
+                                    case set:
+                                    case ld:
+                                            
+                                            rob[instrIndex].result = wrback->tempResult;
+                                            rob[instrIndex].completed = true;
+                                            
+                                            
+                                            // int tempHead = headIndex+1;
+                                            // if(tempHead == tailIndex){
+                                            //     rob[tailIndex].completed = false;
+                                            //     incrementTailIndex();
+                                            // }
+
+                                        break;
+
+                                    case bez:
+                                    case bgez:
+                                    case bgtz:
+                                    case blez:
+                                    case bltz:    
+                                    case st:
+                                        rob[instrIndex].completed = true;
+
+                                            
+                                    case ret:
+                                        rob[instrIndex].completed = true;
+                                        break;    
+                                    default:
                                         
-                                        rob[headIndex].result = writeback->tempResult;
-                                        rob[headIndex].completed = true;
-                                        int tempHead = headIndex+1;
-                                        if(tempHead == tailIndex){
-                                            rob[tailIndex].completed = false;
-                                            incrementTailIndex();
-                                        }
-
-                                    break;
+                                        break;
                                         
-                                case ret:
-                                    break;    
-                                default:
-                                    
-                                    break;
-                                    
 
-            } 
+                } 
+                copyData(rob[instrIndex].reInstr,wrback);
+                resetOldInstruction(wrback->type,instr);
+            }
            
 
             
-        }
-        else{
-            rob[headIndex].completed = true;
-        }
+        
 }
 void writeBack(Stage *instr, ROB* rob){
     Stage *wb1Instruction = &instr[WB1];
@@ -1620,52 +1950,43 @@ void writeBack(Stage *instr, ROB* rob){
     Stage *wb3Instruction = &instr[WB3];
     Stage *wb4Instruction = &instr[WB4];
     Stage *re1Instr = &instr[RE1];
-    Stage *re2Instr = &instr[RE1];
+    Stage *re2Instr = &instr[RE2];
 
 
     if(wb1Instruction->index >-1){
         createLogForStage(WB1,wb1Instruction);
-        wb(wb1Instruction,rob);
-        if(re1Instr->index<0){
-            pushDataToNewStage(WB1,RE1,instr);
-        }else if(re2Instr->index <0){
-            pushDataToNewStage(WB1,RE2,instr);
-        }
+        wb(wb1Instruction,rob,instr);
+    
     }
-    else if(wb2Instruction->index >-1){
+    if(wb2Instruction->index >-1){
         createLogForStage(WB2,wb2Instruction);
-        wb(wb2Instruction,rob);
-        if(re1Instr->index<0){
-            pushDataToNewStage(WB2,RE1,instr);
-        }else if(re2Instr->index <0){
-            pushDataToNewStage(WB2,RE2,instr);
-        }
+        wb(wb2Instruction,rob,instr);
+        
     }
-    else if(wb3Instruction->index >-1){
+    if(wb3Instruction->index >-1){
         createLogForStage(WB3,wb3Instruction);
-        wb(wb3Instruction,rob);
-        if(re1Instr->index<0){
-            pushDataToNewStage(WB3,RE1,instr);
-        }else if(re2Instr->index <0){
-            pushDataToNewStage(WB3,RE2,instr);
-        } 
+        wb(wb3Instruction,rob,instr);
+        
     }
-    else if(wb4Instruction->index >-1){
+    if(wb4Instruction->index >-1){
         createLogForStage(WB4,wb4Instruction);
-        wb(wb4Instruction,rob);
-        if(re1Instr->index<0){
-            pushDataToNewStage(WB4,RE1,instr);
-        }else if(re2Instr->index <0){
-            pushDataToNewStage(WB4,RE2,instr);
-        } 
+        wb(wb4Instruction,rob,instr);
     }
     
     
 }
 
-bool retire1(Stage *instr,ROB* rob,CPU *cpu){
 
+
+bool retire1(Stage *instr,ROB* rob,CPU *cpu){
     Stage *retire1Instruction = &instr[RE1];
+
+    if(rob[headIndex].completed){
+        retire1Instruction->type = RE1;
+        copyData(retire1Instruction,rob[headIndex].reInstr);
+    }
+
+
     bool toStop = false;
 
     if(retire1Instruction->index >-1){
@@ -1677,25 +1998,35 @@ bool retire1(Stage *instr,ROB* rob,CPU *cpu){
            && rob[headIndex].completed){
             cpu->regs[retire1Instruction->destinationRegister].is_writing = true;
             cpu->regs[retire1Instruction->destinationRegister].value = rob[headIndex].result;
+
             cpu->regs[retire1Instruction->destinationRegister].tag = -1;
             rob[headIndex].result = -1;
             rob[headIndex].dest = -1;
             rob[headIndex].index = -1;
             rob[headIndex].completed = false;
-            incrementHeadIndex();
 
-            
-        
-        }
-        else{
-            rob[headIndex].completed = false;
+            int robIndex = registerPresentInRob(retire1Instruction->destinationRegister,rob);
+
+            if(robIndex >-1 && !rob[robIndex].completed){
+                cpu->regs[retire1Instruction->destinationRegister].tag = robIndex;
+                cpu->regs[retire1Instruction->destinationRegister].is_writing = false;
+            }
             incrementHeadIndex();
+        }
+        else if(checkIfBranchInstruction(createOpcodeIndex(retire1Instruction->opcode))
+                || createOpcodeIndex(retire1Instruction->opcode) == st){
+
+                rob[headIndex].completed = false;
+                rob[headIndex].index = -1;
+                incrementHeadIndex();
         }
 
         if(createOpcodeIndex(retire1Instruction->opcode) == ret){
+            rob[headIndex].completed = false;
+            rob[headIndex].index = -1;
             toStop = true;
         }
-        pushDataToNewStage(RE1,COMP,instr);  
+        pushDataToNewStage(RE1,COMP1,instr);  
         
 
     }
@@ -1705,6 +2036,12 @@ bool retire1(Stage *instr,ROB* rob,CPU *cpu){
 
 void retire2(Stage *instr,ROB* rob,CPU *cpu){
     Stage *retire2Instruction = &instr[RE2];
+
+
+    if(rob[headIndex].completed){
+        retire2Instruction->type = RE2;
+        copyData(retire2Instruction,rob[headIndex].reInstr);
+    }
 
     if(retire2Instruction->index >-1){
 
@@ -1719,15 +2056,25 @@ void retire2(Stage *instr,ROB* rob,CPU *cpu){
             rob[headIndex].result = -1;
             rob[headIndex].dest = -1;
             rob[headIndex].completed = false;
+            rob[headIndex].index = -1;
+
+            int robIndex = registerPresentInRob(retire2Instruction->destinationRegister,rob);
+
+            if(robIndex >-1 && !rob[robIndex].completed){
+                cpu->regs[retire2Instruction->destinationRegister].tag = robIndex;
+                cpu->regs[retire2Instruction->destinationRegister].is_writing = false;
+            }
             incrementHeadIndex();
 
             
-        }else{
-
-            rob[headIndex].completed = false;
-            incrementHeadIndex();
+        }else if(checkIfBranchInstruction(createOpcodeIndex(retire2Instruction->opcode))
+                || createOpcodeIndex(retire2Instruction->opcode) == st){
+                
+                rob[headIndex].completed = false;
+                rob[headIndex].index = -1;
+                incrementHeadIndex();
         }
-        pushDataToNewStage(RE2,COMP,instr);  
+        pushDataToNewStage(RE2,COMP2,instr);  
         
     }
     
@@ -1743,6 +2090,7 @@ ROB_init()
     }
     
     for (int i=0; i<ROB_COUNT; i++){
+        ROB* robIterator = &robIn[i];
         char robName[5]  = "ROB";    
         char index[2];
         sprintf(index, "%d", i);
@@ -1753,6 +2101,9 @@ ROB_init()
         robIn[i].e = false;
         robIn[i].index = -1;
         strcpy(robIn[i].bufferName,robName);
+        robIterator->reInstr = malloc(sizeof(*robIterator->reInstr));
+        resetValues(robIterator->reInstr);
+        
     }
     return robIn;
 }
@@ -1854,7 +2205,17 @@ void printLogs(int cycle,ROB *rob,CPU* cpu){
         printf("| MEM1 : %s            |\n",logger[MM1].logInfo);
 
         printf("---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---  ---\n");
-        printf("| IS     %s  %s\n",logger[IS].logInfo,strlen(logger[IS].logInfo) >0?"|":"");
+        printf("| IS");
+        if(strlen(logger[IS0].logInfo) >0)
+            printf("     %s  %s",logger[IS0].logInfo,strlen(logger[IS0].logInfo) >0?"|":"");
+        if(strlen(logger[IS1].logInfo) >0)
+            printf("     %s  %s",logger[IS1].logInfo,strlen(logger[IS1].logInfo) >0?"|":"");
+        if(strlen(logger[IS2].logInfo) >0)
+            printf("     %s  %s",logger[IS2].logInfo,strlen(logger[IS2].logInfo) >0?"|":"");
+        if(strlen(logger[IS3].logInfo) >0)
+            printf("     %s  %s",logger[IS3].logInfo,strlen(logger[IS3].logInfo) >0?"|":"");
+
+        printf("\n");            
         printf("| IR   : %s\n",logger[RR].logInfo);
         if(!logHide){
             printf("| IA   : %s\n",logger[IA].logInfo);
@@ -1895,7 +2256,10 @@ void printLogs(int cycle,ROB *rob,CPU* cpu){
         log->index = -1;
         log->type = -1;
         if(strlen(log->logInfo) >0){
-            strcpy(log->logInfo,"");
+            strncpy(log->logInfo,"",sizeof(log->logInfo));
+        }
+        if(strlen(log->logInfo) >0){
+            strncpy(log->logInfo,"",sizeof(log->logInfo));
         }
     }
 }
@@ -1934,10 +2298,11 @@ void processPipeline(char *instrFromFile[300],CPU *cpu){
         
 
         
-        if(cpu->cycle == 900){
+        if(cpu->cycle == 21){
             printf("%d\n",cpu->cycle);
         }
-        resetOldInstruction(COMP,pipelineInstructions);
+        resetOldInstruction(COMP1,pipelineInstructions);
+        resetOldInstruction(COMP2,pipelineInstructions);
         toStop = retire1(pipelineInstructions,rob,cpu);
         retire2(pipelineInstructions,rob,cpu);
         writeBack(pipelineInstructions,rob);
@@ -1967,11 +2332,13 @@ void processPipeline(char *instrFromFile[300],CPU *cpu){
 
             if(calculateStructuralHazard){ cpu->structuralHazard++; }
             if(calculateDataHazard){cpu->dataHazard++;}
-            //resetStalledInstructions(indexOfStalledInstr,pipelineInstructions);
             
         }
 
-        if(pipelineInstructions[COMP].index>-1){
+        if(pipelineInstructions[COMP1].index>-1){
+            cpu->totalInstructions++;
+        }
+        if(pipelineInstructions[COMP2].index>-1){
             cpu->totalInstructions++;
         }
 
@@ -1998,7 +2365,7 @@ void run_cpu_fun(char* filename){
     readInstructionFromFile(filename,instrFromFile);
     readMemoryMapFromFile("memory_map.txt");
     processPipeline(instrFromFile,cpu);
-    char opMemFileName[30]  = "mmap_";
+    char opMemFileName[300]  = "mmap_";
     sprintf(opMemFileName, "%s%s", opMemFileName, filename);
     writeToFile(opMemFileName);
     CPU_run(cpu);
@@ -2017,7 +2384,7 @@ int main(int argc, const char * argv[]) {
 //         return -1;
 //     }
 
-    char* filename = "program1.txt";
+    char* filename = "program3.txt";
     
     
 
