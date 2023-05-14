@@ -21,7 +21,7 @@ bool calculateStructuralHazard = false;
 bool calculateDataHazard = true;
 int headIndex = 0;
 int tailIndex = 0;
-bool enableLogs = true;
+bool enableLogs = false;
 myLogger *logger;
 bool logHide = false;
 Stage retireBuffer[250];
@@ -92,175 +92,56 @@ bool checkIfBranchInstruction(int resopcode){
 
 }
 void createLogForStage(int stage, Stage* instr){
-    char stageLog[250] ="";
-    char pCounter[5];
-    char opcode[8];
-    char destinationRegister[20] ="";
-    char sourceRegister1[20] ="";
-    char sourceRegister2[20] ="";
-    char immVal1[20] ="";
-    char immVal2[20] ="";
-    char path[10]="";
 
-    myLogger *logS = &logger[stage];
-    
-    switch(stage){
-        case IF:
-            strcpy(stageLog,instr->orignalInstruction);
-            //logS->logInfo = malloc(sizeof(&stageLog));
-            strcpy(logS->logInfo,stageLog);
-            break;
+    if(enableLogs){
+        char stageLog[250] ="";
+        char pCounter[5];
+        char opcode[8];
+        char destinationRegister[20] ="";
+        char sourceRegister1[20] ="";
+        char sourceRegister2[20] ="";
+        char immVal1[20] ="";
+        char immVal2[20] ="";
+        char path[10]="";
 
-        case ID:
-        case IA:
-            strcpy(pCounter,instr->pCounter);
-            strncpy(opcode, instr->opcode, sizeof(instr->opcode) -1);
+        myLogger *logS = &logger[stage];
+        
+        switch(stage){
+            case IF:
+                strcpy(stageLog,instr->orignalInstruction);
+                //logS->logInfo = malloc(sizeof(&stageLog));
+                strcpy(logS->logInfo,stageLog);
+                break;
 
-            if(instr->destinationRegister>-1){
-                strcpy(destinationRegister, "R");
-                sprintf(destinationRegister, "%s%d", destinationRegister,instr->destinationRegister);
-            }
-            if(instr->sourceRegister1>-1){
-                strcpy(sourceRegister1, "R");
-                sprintf(sourceRegister1, "%s%d", sourceRegister1, instr->sourceRegister1);
-            }
-            if(instr->sourceRegister2>-1){
-                strcpy(sourceRegister2, "R");
-                sprintf(sourceRegister2, "%s%d", sourceRegister2, instr->sourceRegister2);
-            }
-            if(instr->immediateValue1>INT_MIN){
-                sprintf(immVal1, "imm(#%d)",instr->immediateValue1);
-            }
-            else{
-                sprintf(immVal2, "imm()");
-            }
-            
-            if(instr->immediateValue2>INT_MIN){
-                sprintf(immVal2, "imm(#%d)", instr->immediateValue2);
-            }
-            
-            
-            sprintf(stageLog,"%s%s %s %s %s %s %s %s",
-                            pCounter,
-                            ":",
-                            opcode,
-                            strlen(destinationRegister) > 0 ? destinationRegister :" ",
-                            strlen(sourceRegister1) > 0 ? sourceRegister1 :" ",
-                            strlen(sourceRegister2) > 0 ? sourceRegister2 :" ",
-                            strlen(immVal1) > 0 ? immVal1 :" ",
-                            strlen(immVal2) > 0 ? immVal2 :"");
+            case ID:
+            case IA:
+                strcpy(pCounter,instr->pCounter);
+                strncpy(opcode, instr->opcode, sizeof(instr->opcode) -1);
 
-            //logS->logInfo = malloc(sizeof(&stageLog));
-            strcpy(logS->logInfo,stageLog);
-            break;
-
-        case RR:
-        case RS0:
-        case RS1:
-        case RS2:
-        case RS3:
-        case IS0:
-        case IS1:
-        case IS2:
-        case IS3:
-        case ADD:
-        case MUL1:
-        case MUL2:
-        case DIV1:
-        case DIV2:
-        case DIV3:
-        case MM1:
-        case MM2:
-        case MM3:
-        case MM4:
-            strcpy(pCounter,instr->pCounter);
-            strncpy(opcode, instr->opcode, sizeof(instr->opcode) -1);
-            bool ignore = false;
-            if(checkIfBranchInstruction(createOpcodeIndex(instr->opcode)) || createOpcodeIndex(instr->opcode) == st){
-                ignore = true;
-            }
-
-            if(instr->destinationRegister>-1){
-                
-                if(instr->robDest >-1 && instr->immediateValue2 >INT_MIN){
-                    sprintf(destinationRegister, "%d", instr->immediateValue2);
-                }
-                else if(strlen(instr->destinationRegisterName)>0){
-                    sprintf(destinationRegister, "%s", instr->destinationRegisterName);
-                }
-                else if(ignore && instr->immediateValue2 >INT_MIN ){
-                    sprintf(destinationRegister, "%d", instr->immediateValue2);
-                }
-                else{
+                if(instr->destinationRegister>-1){
                     strcpy(destinationRegister, "R");
                     sprintf(destinationRegister, "%s%d", destinationRegister,instr->destinationRegister);
                 }
-            }
-            if(instr->sourceRegister1>-1){
-                if(instr->immediateValue1 > INT_MIN){
-                    sprintf(sourceRegister1, "%d", instr->immediateValue1);
+                if(instr->sourceRegister1>-1){
+                    strcpy(sourceRegister1, "R");
+                    sprintf(sourceRegister1, "%s%d", sourceRegister1, instr->sourceRegister1);
                 }
-                else if(strlen(instr->sourceRegister1Name)>0){
-                    sprintf(sourceRegister1, "%s", instr->sourceRegister1Name);
+                if(instr->sourceRegister2>-1){
+                    strcpy(sourceRegister2, "R");
+                    sprintf(sourceRegister2, "%s%d", sourceRegister2, instr->sourceRegister2);
+                }
+                if(instr->immediateValue1>INT_MIN){
+                    sprintf(immVal1, "imm(#%d)",instr->immediateValue1);
                 }
                 else{
-                    strcpy(sourceRegister1, "R");
-                    sprintf(sourceRegister1, "%s%d", sourceRegister1,instr->sourceRegister1);   
+                    sprintf(immVal2, "imm()");
                 }
                 
-            }
-            if(instr->sourceRegister2>-1){
-                if(instr->immediateValue2 > INT_MIN){
-                    sprintf(sourceRegister2, "%d", instr->immediateValue2);
+                if(instr->immediateValue2>INT_MIN){
+                    sprintf(immVal2, "imm(#%d)", instr->immediateValue2);
                 }
-                else if(strlen(instr->sourceRegister2Name)>0){
-                    sprintf(sourceRegister2, "%s", instr->sourceRegister2Name);
-                }
-                else{
-                    strcpy(sourceRegister2, "R");
-                    sprintf(sourceRegister2, "%s%d", sourceRegister2,instr->sourceRegister2);
-                }
-                //sprintf(immVal1, "imm()",instr->immediateValue1);
-            }
-
-            if(instr->sourceRegister1>-1 && instr->sourceRegister2>-1){
-                sprintf(immVal1, "imm()",instr->immediateValue1);
-            }
-            else if(instr->sourceRegister1>-1 
-            && (createOpcodeIndex(instr->opcode) == ld || createOpcodeIndex(instr->opcode) == st)){
-                sprintf(immVal1, "imm()",instr->immediateValue2);
-            }
-            if(instr->sourceRegister1 <0 && instr->immediateValue1>INT_MIN){
-                sprintf(immVal1, "imm(#%d)",instr->immediateValue1);
-            }
-            if(instr->sourceRegister2 <0 && instr->immediateValue2>INT_MIN 
-                && (!ignore)
-                ){
-                sprintf(immVal2, "imm(#%d)", instr->immediateValue2);
-            }
-            if(stage == IS0 || stage == IS1 || stage == IS2 || stage == IS3){
-                 
-                 if(instr->path == ADD){
-                    strcpy(path,"=> Add");
-                 }else if(instr->path == MUL1){
-                    strcpy(path,"=> Mul 1");
-                 }else if(instr->path == DIV1){
-                    strcpy(path,"=> Div 1");
-                 }else if(instr->path == MM1){
-                    strcpy(path,"=> Mem 1");
-                 }
-                 sprintf(stageLog,"%s%s %s %s %s %s %s %s %s",
-                                pCounter,
-                                ":",
-                                opcode,
-                                strlen(destinationRegister) > 0 ? destinationRegister :" ",
-                                strlen(sourceRegister1) > 0 ? sourceRegister1 :" ",
-                                strlen(sourceRegister2) > 0 ? sourceRegister2 :" ",
-                                strlen(immVal1) > 0 ? immVal1 :" ",
-                                strlen(immVal2) > 0 ? immVal2 :"",
-                                path);
-            }
-            else{
+                
+                
                 sprintf(stageLog,"%s%s %s %s %s %s %s %s",
                                 pCounter,
                                 ":",
@@ -270,80 +151,202 @@ void createLogForStage(int stage, Stage* instr){
                                 strlen(sourceRegister2) > 0 ? sourceRegister2 :" ",
                                 strlen(immVal1) > 0 ? immVal1 :" ",
                                 strlen(immVal2) > 0 ? immVal2 :"");
-            }
 
-            //logS->logInfo = malloc(sizeof(&stageLog));
-            strcpy(logS->logInfo,stageLog);
-            break;
-        
-        case WB1:
-        case WB2:
-        case WB3:
-        case WB4:
-            strcpy(pCounter,instr->pCounter);
-            strncpy(opcode, instr->opcode, sizeof(instr->opcode) -1);
-            if(checkIfBranchInstruction(createOpcodeIndex(instr->opcode))
-                || createOpcodeIndex(instr->opcode) == ret
-                || createOpcodeIndex(instr->opcode) == st){
-
-                     sprintf(stageLog,"%s%s %s",
-                                pCounter,
-                                ":",
-                                "No ROB update");
-                
                 //logS->logInfo = malloc(sizeof(&stageLog));
-                strcpy(logS->logInfo,stageLog);            
+                strcpy(logS->logInfo,stageLog);
+                break;
 
-            }else{
-               if(instr->destinationRegister>-1){
-                    sprintf(destinationRegister, "%s", instr->destinationRegisterName);
+            case RR:
+            case RS0:
+            case RS1:
+            case RS2:
+            case RS3:
+            case IS0:
+            case IS1:
+            case IS2:
+            case IS3:
+            case ADD:
+            case MUL1:
+            case MUL2:
+            case DIV1:
+            case DIV2:
+            case DIV3:
+            case MM1:
+            case MM2:
+            case MM3:
+            case MM4:
+                strcpy(pCounter,instr->pCounter);
+                strncpy(opcode, instr->opcode, sizeof(instr->opcode) -1);
+                bool ignore = false;
+                if(checkIfBranchInstruction(createOpcodeIndex(instr->opcode)) || createOpcodeIndex(instr->opcode) == st){
+                    ignore = true;
                 }
-                
-                sprintf(stageLog,"%s %s%s %s %s",
-                                pCounter,
-                                opcode,
-                                ":",
-                                "update",
-                                strlen(destinationRegister) > 0 ? destinationRegister :" ");
-                
-                //logS->logInfo = malloc(sizeof(&stageLog));
-                strcpy(logS->logInfo,stageLog);
-            }                
-            break;
 
-        case RE1:
-        case RE2:
-            strcpy(pCounter,instr->pCounter);
-            if(checkIfBranchInstruction(createOpcodeIndex(instr->opcode)) 
-                || createOpcodeIndex(instr->opcode) == ret
-                || createOpcodeIndex(instr->opcode) == st){
-                 sprintf(stageLog,"%s%s %s",
-                                pCounter,
-                                ":",
-                                "No register update");
-                
-                //logS->logInfo = malloc(sizeof(&stageLog));
-                strcpy(logS->logInfo,stageLog);
-            }
-            else{
-                
                 if(instr->destinationRegister>-1){
-                    strcpy(destinationRegister, "R");
-                    sprintf(destinationRegister, "%s%d", destinationRegister,instr->destinationRegister);
+                    
+                    if(instr->robDest >-1 && instr->immediateValue2 >INT_MIN){
+                        sprintf(destinationRegister, "%d", instr->immediateValue2);
+                    }
+                    else if(strlen(instr->destinationRegisterName)>0){
+                        sprintf(destinationRegister, "%s", instr->destinationRegisterName);
+                    }
+                    else if(ignore && instr->immediateValue2 >INT_MIN ){
+                        sprintf(destinationRegister, "%d", instr->immediateValue2);
+                    }
+                    else{
+                        strcpy(destinationRegister, "R");
+                        sprintf(destinationRegister, "%s%d", destinationRegister,instr->destinationRegister);
+                    }
                 }
-                
-                sprintf(stageLog,"%s%s %s %s %s (%d)",
-                                pCounter,
-                                ":",
-                                "update",
-                                "rd",
-                                strlen(destinationRegister) > 0 ? destinationRegister :" ",
-                                instr->tempResult);
-                
+                if(instr->sourceRegister1>-1){
+                    if(instr->immediateValue1 > INT_MIN){
+                        sprintf(sourceRegister1, "%d", instr->immediateValue1);
+                    }
+                    else if(strlen(instr->sourceRegister1Name)>0){
+                        sprintf(sourceRegister1, "%s", instr->sourceRegister1Name);
+                    }
+                    else{
+                        strcpy(sourceRegister1, "R");
+                        sprintf(sourceRegister1, "%s%d", sourceRegister1,instr->sourceRegister1);   
+                    }
+                    
+                }
+                if(instr->sourceRegister2>-1){
+                    if(instr->immediateValue2 > INT_MIN){
+                        sprintf(sourceRegister2, "%d", instr->immediateValue2);
+                    }
+                    else if(strlen(instr->sourceRegister2Name)>0){
+                        sprintf(sourceRegister2, "%s", instr->sourceRegister2Name);
+                    }
+                    else{
+                        strcpy(sourceRegister2, "R");
+                        sprintf(sourceRegister2, "%s%d", sourceRegister2,instr->sourceRegister2);
+                    }
+                    //sprintf(immVal1, "imm()",instr->immediateValue1);
+                }
+
+                if(instr->sourceRegister1>-1 && instr->sourceRegister2>-1){
+                    sprintf(immVal1, "imm()",instr->immediateValue1);
+                }
+                else if(instr->sourceRegister1>-1 
+                && (createOpcodeIndex(instr->opcode) == ld || createOpcodeIndex(instr->opcode) == st)){
+                    sprintf(immVal1, "imm()",instr->immediateValue2);
+                }
+                if(instr->sourceRegister1 <0 && instr->immediateValue1>INT_MIN){
+                    sprintf(immVal1, "imm(#%d)",instr->immediateValue1);
+                }
+                if(instr->sourceRegister2 <0 && instr->immediateValue2>INT_MIN 
+                    && (!ignore)
+                    ){
+                    sprintf(immVal2, "imm(#%d)", instr->immediateValue2);
+                }
+                if(stage == IS0 || stage == IS1 || stage == IS2 || stage == IS3){
+                    
+                    if(instr->path == ADD){
+                        strcpy(path,"=> Add");
+                    }else if(instr->path == MUL1){
+                        strcpy(path,"=> Mul 1");
+                    }else if(instr->path == DIV1){
+                        strcpy(path,"=> Div 1");
+                    }else if(instr->path == MM1){
+                        strcpy(path,"=> Mem 1");
+                    }
+                    sprintf(stageLog,"%s%s %s %s %s %s %s %s %s",
+                                    pCounter,
+                                    ":",
+                                    opcode,
+                                    strlen(destinationRegister) > 0 ? destinationRegister :" ",
+                                    strlen(sourceRegister1) > 0 ? sourceRegister1 :" ",
+                                    strlen(sourceRegister2) > 0 ? sourceRegister2 :" ",
+                                    strlen(immVal1) > 0 ? immVal1 :" ",
+                                    strlen(immVal2) > 0 ? immVal2 :"",
+                                    path);
+                }
+                else{
+                    sprintf(stageLog,"%s%s %s %s %s %s %s %s",
+                                    pCounter,
+                                    ":",
+                                    opcode,
+                                    strlen(destinationRegister) > 0 ? destinationRegister :" ",
+                                    strlen(sourceRegister1) > 0 ? sourceRegister1 :" ",
+                                    strlen(sourceRegister2) > 0 ? sourceRegister2 :" ",
+                                    strlen(immVal1) > 0 ? immVal1 :" ",
+                                    strlen(immVal2) > 0 ? immVal2 :"");
+                }
+
                 //logS->logInfo = malloc(sizeof(&stageLog));
                 strcpy(logS->logInfo,stageLog);
-            } 
-            break;
+                break;
+            
+            case WB1:
+            case WB2:
+            case WB3:
+            case WB4:
+                strcpy(pCounter,instr->pCounter);
+                strncpy(opcode, instr->opcode, sizeof(instr->opcode) -1);
+                if(checkIfBranchInstruction(createOpcodeIndex(instr->opcode))
+                    || createOpcodeIndex(instr->opcode) == ret
+                    || createOpcodeIndex(instr->opcode) == st){
+
+                        sprintf(stageLog,"%s%s %s",
+                                    pCounter,
+                                    ":",
+                                    "No ROB update");
+                    
+                    //logS->logInfo = malloc(sizeof(&stageLog));
+                    strcpy(logS->logInfo,stageLog);            
+
+                }else{
+                if(instr->destinationRegister>-1){
+                        sprintf(destinationRegister, "%s", instr->destinationRegisterName);
+                    }
+                    
+                    sprintf(stageLog,"%s %s%s %s %s",
+                                    pCounter,
+                                    opcode,
+                                    ":",
+                                    "update",
+                                    strlen(destinationRegister) > 0 ? destinationRegister :" ");
+                    
+                    //logS->logInfo = malloc(sizeof(&stageLog));
+                    strcpy(logS->logInfo,stageLog);
+                }                
+                break;
+
+            case RE1:
+            case RE2:
+                strcpy(pCounter,instr->pCounter);
+                if(checkIfBranchInstruction(createOpcodeIndex(instr->opcode)) 
+                    || createOpcodeIndex(instr->opcode) == ret
+                    || createOpcodeIndex(instr->opcode) == st){
+                    sprintf(stageLog,"%s%s %s",
+                                    pCounter,
+                                    ":",
+                                    "No register update");
+                    
+                    //logS->logInfo = malloc(sizeof(&stageLog));
+                    strcpy(logS->logInfo,stageLog);
+                }
+                else{
+                    
+                    if(instr->destinationRegister>-1){
+                        strcpy(destinationRegister, "R");
+                        sprintf(destinationRegister, "%s%d", destinationRegister,instr->destinationRegister);
+                    }
+                    
+                    sprintf(stageLog,"%s%s %s %s %s (%d)",
+                                    pCounter,
+                                    ":",
+                                    "update",
+                                    "rd",
+                                    strlen(destinationRegister) > 0 ? destinationRegister :" ",
+                                    instr->tempResult);
+                    
+                    //logS->logInfo = malloc(sizeof(&stageLog));
+                    strcpy(logS->logInfo,stageLog);
+                } 
+                break;
+        }
     }
 
 
